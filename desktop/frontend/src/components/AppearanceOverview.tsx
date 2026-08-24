@@ -23,6 +23,13 @@ import {
 import { useToast } from "../lib/toast";
 import { ThemeGallery } from "./ThemeGallery";
 import { TypographySettings } from "./TypographySettings";
+import {
+  WORKBENCH_BACKGROUNDS,
+  getWorkbenchBackgroundPreferences,
+  resetWorkbenchBackgroundPreferences,
+  setWorkbenchBackgroundPreferences,
+  type WorkbenchBackgroundPreferences,
+} from "../lib/workbenchBackground";
 
 const STYLE_NAME_KEY: Record<ThemeStyle, DictKey> = {
   graphite: "settings.style.graphite.zh",
@@ -134,6 +141,9 @@ export function AppearanceOverview({
   const [galleryIntent, setGalleryIntent] = useState<"browse" | "copy-base">("browse");
   const [experience, setExperience] = useState<ThemeExperienceView | null>(null);
   const [busy, setBusy] = useState(false);
+  const [workbenchBackground, setWorkbenchBackground] = useState<WorkbenchBackgroundPreferences>(
+    getWorkbenchBackgroundPreferences,
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -179,6 +189,7 @@ export function AppearanceOverview({
   };
 
   const pack = experience?.activePack ?? null;
+  const packOwnsBackground = Boolean(pack?.hasBackground);
   const baseStyle = (isThemeStyle(experience?.baseStyle) ? experience!.baseStyle : themeStyle) as ThemeStyle;
   const styleNameKey = STYLE_NAME_KEY[baseStyle] || STYLE_NAME_KEY.graphite;
 
@@ -262,6 +273,18 @@ export function AppearanceOverview({
     }
   };
 
+  const updateWorkbenchBackground = (patch: Partial<WorkbenchBackgroundPreferences>) => {
+    setWorkbenchBackground((current) => {
+      const next = setWorkbenchBackgroundPreferences({ ...current, ...patch });
+      return next;
+    });
+  };
+
+  const resetWorkbenchBackground = () => {
+    setWorkbenchBackground(resetWorkbenchBackgroundPreferences());
+    showToast(t("settings.workbenchBackground.resetDone"), "info");
+  };
+
   if (view === "gallery" && experience) {
     return (
       <ThemeGallery
@@ -342,6 +365,97 @@ export function AppearanceOverview({
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="workbench-background" aria-labelledby="workbench-background-label">
+        <div className="workbench-background__heading">
+          <div>
+            <h3 id="workbench-background-label" className="appearance-overview__section-label">
+              {t("settings.workbenchBackground.title")}
+            </h3>
+            <p>{t("settings.workbenchBackground.hint")}</p>
+          </div>
+          <button
+            type="button"
+            className="btn workbench-background__reset"
+            disabled={packOwnsBackground}
+            onClick={resetWorkbenchBackground}
+          >
+            <RotateCcw size={14} /> {t("settings.workbenchBackground.reset")}
+          </button>
+        </div>
+
+        {packOwnsBackground ? (
+          <div className="workbench-background__pack-note">
+            <LockKeyhole size={13} aria-hidden="true" />
+            {t("settings.workbenchBackground.packManaged")}
+          </div>
+        ) : null}
+
+        <div className="workbench-background__grid" role="radiogroup" aria-labelledby="workbench-background-label">
+          {WORKBENCH_BACKGROUNDS.map((background) => {
+            const selected = workbenchBackground.id === background.id;
+            return (
+              <button
+                key={background.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`workbench-background__card${selected ? " workbench-background__card--selected" : ""}`}
+                disabled={packOwnsBackground}
+                onClick={() => updateWorkbenchBackground({ id: background.id })}
+              >
+                <span className="workbench-background__preview">
+                  {background.imageUrl ? <img src={background.imageUrl} alt="" loading="lazy" /> : <span className="workbench-background__none" />}
+                  {selected ? <span className="workbench-background__check"><Check size={13} /></span> : null}
+                </span>
+                <span className="workbench-background__name">{t(background.nameKey)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="workbench-background__controls" aria-disabled={packOwnsBackground}>
+          <label className="workbench-background__control">
+            <span><span>{t("settings.workbenchBackground.brightness")}</span><output>{workbenchBackground.brightness}%</output></span>
+            <input
+              type="range"
+              min="60"
+              max="120"
+              step="2"
+              value={workbenchBackground.brightness}
+              disabled={packOwnsBackground}
+              onChange={(event) => updateWorkbenchBackground({ brightness: Number(event.target.value) })}
+            />
+          </label>
+          <label className="workbench-background__control">
+            <span><span>{t("settings.workbenchBackground.overlay")}</span><output>{workbenchBackground.overlay}%</output></span>
+            <input
+              type="range"
+              min="0"
+              max="70"
+              step="2"
+              value={workbenchBackground.overlay}
+              disabled={packOwnsBackground}
+              onChange={(event) => updateWorkbenchBackground({ overlay: Number(event.target.value) })}
+            />
+          </label>
+          <label className="workbench-background__control">
+            <span><span>{t("settings.workbenchBackground.blur")}</span><output>{workbenchBackground.blur}px</output></span>
+            <input
+              type="range"
+              min="0"
+              max="12"
+              step="1"
+              value={workbenchBackground.blur}
+              disabled={packOwnsBackground}
+              onChange={(event) => updateWorkbenchBackground({ blur: Number(event.target.value) })}
+            />
+          </label>
+        </div>
+        <span className="workbench-background__performance-note">
+          {t("settings.workbenchBackground.performanceHint")}
+        </span>
       </section>
 
       <div className="appearance-overview__rows">

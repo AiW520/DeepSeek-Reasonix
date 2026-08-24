@@ -54,6 +54,8 @@ import { RuntimeDecisionCard } from "./components/RuntimeDecisionCard";
 import { decisionSurfaceMockFromInput, type DecisionSurfaceKind as MockDecisionSurfaceKind } from "./lib/decisionSurfaceMock";
 const UndoRewindBanner = lazy(() => import("./components/UndoRewindBanner").then((module) => ({ default: module.UndoRewindBanner })));
 const ProjectTree = lazy(() => import("./components/ProjectTree").then((module) => ({ default: module.ProjectTree })));
+const ProjectLearningWorkspace = lazy(() => import("./components/ProjectLearningWorkspace").then((module) => ({ default: module.ProjectLearningWorkspace })));
+const DevelopmentStudioPanel = lazy(() => import("./components/DevelopmentStudioPanel").then((module) => ({ default: module.DevelopmentStudioPanel })));
 /** Footer decision surface kinds. Runtime blockers are explicit recovery choices. */
 type DecisionSurfaceKind = MockDecisionSurfaceKind | "extension_form";
 import { StatusBar } from "./components/StatusBar";
@@ -1131,6 +1133,7 @@ export default function App() {
   const needsOnboarding = useOverlayStore((s) => s.needsOnboarding);
   const setNeedsOnboarding = useOverlayStore((s) => s.setNeedsOnboarding);
   const [providerSetupNeeded, setProviderSetupNeeded] = useState(false);
+  const [projectLearningOpen, setProjectLearningOpen] = useState(false);
   const settingsTarget = useOverlayStore((s) => s.settingsTarget);
   const setSettingsTarget = useOverlayStore((s) => s.setSettingsTarget);
   const settingsFocus = useOverlayStore((s) => s.settingsFocus);
@@ -4318,6 +4321,17 @@ export default function App() {
                   <MessageSquare size={18} aria-hidden="true" />
                   <span>{t("topbar.newSession")}</span>
                 </button>
+                <button
+                  className="sidebar__quick-action"
+                  type="button"
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setProjectLearningOpen(true);
+                  }}
+                >
+                  <Brain size={18} aria-hidden="true" />
+                  <span>项目逆向学习</span>
+                </button>
               </div>
             </>
           ) : (
@@ -4374,6 +4388,17 @@ export default function App() {
                 >
                   <MessageSquare size={14} aria-hidden="true" />
                   <span>{t("creation.sidebar.messageChannels")}</span>
+                </button>
+                <button
+                  className="sidebar-feature-zone__item"
+                  type="button"
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setProjectLearningOpen(true);
+                  }}
+                >
+                  <Brain size={14} aria-hidden="true" />
+                  <span>项目逆向学习</span>
                 </button>
                 <button
                   className="sidebar-feature-zone__item"
@@ -4491,6 +4516,18 @@ export default function App() {
                   </button>
                 </Tooltip>
               )}
+              <Tooltip label="项目逆向学习" fill side="right" disabled={sidebarNavTooltipDisabled}>
+                <button
+                  className="sidebar__navitem"
+                  onClick={() => {
+                    closeTransientOverlays();
+                    setProjectLearningOpen(true);
+                  }}
+                >
+                  <Brain size={15} />
+                  <span>项目逆向学习</span>
+                </button>
+              </Tooltip>
               <Tooltip label={t("topbar.settings")} fill side="right" disabled={sidebarNavTooltipDisabled}>
                 <button
                   className="sidebar__navitem"
@@ -5161,6 +5198,16 @@ export default function App() {
                   <GitBranch size={13} />
                   <span className="workbench-dock__tab-label">{t("workspace.changedTab")}</span>
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightDockMode === "development"}
+                  className={`workbench-dock__tab${rightDockMode === "development" ? " workbench-dock__tab--active" : ""}`}
+                  onClick={() => openRightDockMode("development")}
+                >
+                  <Brain size={13} />
+                  <span className="workbench-dock__tab-label">{t("rightDock.development")}</span>
+                </button>
                 {remoteHosts.length > 0 && (
                   <button
                     type="button"
@@ -5176,7 +5223,11 @@ export default function App() {
               </div>
             </div>
             <div className="workbench-dock__body">
-              {rightDockMode === "remote" ? (
+              {rightDockMode === "development" ? (
+                <Suspense fallback={null}>
+                  <DevelopmentStudioPanel tabId={activeTabId} />
+                </Suspense>
+              ) : rightDockMode === "remote" ? (
                 <Suspense fallback={null}>
                   <RemotePanel onClose={() => setWorkspacePanel(false)} />
                 </Suspense>
@@ -5362,6 +5413,15 @@ export default function App() {
                 .then(applyDesktopPreferences)
                 .catch((e) => console.warn("desktop preferences refresh failed", e));
             }}
+          />
+        </Suspense>
+      )}
+
+      {projectLearningOpen && (
+        <Suspense fallback={null}>
+          <ProjectLearningWorkspace
+            initialRoot={activeTab?.scope === "project" ? activeTab.workspaceRoot || "" : state.meta?.workspaceRoot || state.meta?.cwd || ""}
+            onClose={() => setProjectLearningOpen(false)}
           />
         </Suspense>
       )}

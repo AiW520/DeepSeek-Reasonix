@@ -4,6 +4,7 @@
 // it at compile time), so adding a key here makes the build fail until zh has it.
 
 export const en = {
+  "settings.tab.github": "GitHub",
   // shared verbs / chrome
   "common.close": "Close",
   "common.cancel": "Cancel",
@@ -182,6 +183,7 @@ export const en = {
   "rightDock.overview": "Overview",
   "rightDock.remote": "Remote",
   "rightDock.terminal": "Terminal",
+  "rightDock.development": "AI Studio",
 
   // topic bar
   "topicBar.renameSession": "Rename session",
@@ -2380,6 +2382,20 @@ export const en = {
   "settings.themeGallery.scenePreview": "Scene",
   "settings.themeGallery.scenePreviewHint": "Preview how the theme background appears on the home screen or in the workspace. This does not apply the theme.",
   "settings.themeGallery.currentAppearance": "Current appearance",
+  "settings.workbenchBackground.title": "Workbench background",
+  "settings.workbenchBackground.hint": "Choose a built-in scene and tune it for a focused developer workspace.",
+  "settings.workbenchBackground.architectural": "Architecture",
+  "settings.workbenchBackground.midnightGrid": "Midnight grid",
+  "settings.workbenchBackground.monochromeStudio": "Mono studio",
+  "settings.workbenchBackground.nightCity": "Night city",
+  "settings.workbenchBackground.none": "No image",
+  "settings.workbenchBackground.brightness": "Brightness",
+  "settings.workbenchBackground.overlay": "Dark overlay",
+  "settings.workbenchBackground.blur": "Blur",
+  "settings.workbenchBackground.reset": "Reset",
+  "settings.workbenchBackground.resetDone": "Restored the default Workbench background",
+  "settings.workbenchBackground.packManaged": "The active theme provides its own background. Disable it to use the Workbench background library.",
+  "settings.workbenchBackground.performanceHint": "Higher blur values may use more GPU resources in the desktop app.",
   "settings.themeGallery.baseStyle": "Base style",
   "settings.themeGallery.baseLockedByPack": "Managed by the active theme. Disable it to change the base style.",
   "settings.themeGallery.tabBase": "Base styles",

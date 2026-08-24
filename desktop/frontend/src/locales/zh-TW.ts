@@ -5,6 +5,7 @@
 import type { DictKey } from "./en";
 
 export const zhTW: Record<DictKey, string> = {
+  "settings.tab.github": "GitHub",
   // 通用動詞 / 框架
   "common.close": "關閉",
   "common.cancel": "取消",
@@ -119,6 +120,7 @@ export const zhTW: Record<DictKey, string> = {
   "rightDock.overview": "概覽",
   "rightDock.remote": "遠端",
   "rightDock.terminal": "終端機",
+  "rightDock.development": "開發實況",
 
   // 話題欄
   "topicBar.renameSession": "重新命名會話",
@@ -3043,6 +3045,20 @@ export const zhTW: Record<DictKey, string> = {
   "settings.themeGallery.scenePreview": "場景預覽",
   "settings.themeGallery.scenePreviewHint": "預覽主題背景在首頁或工作區中的顯示強度；不會立即套用主題。",
   "settings.themeGallery.currentAppearance": "目前外觀",
+  "settings.workbenchBackground.title": "工作台背景",
+  "settings.workbenchBackground.hint": "選擇內建場景，並調整為適合長時間專注開發的視覺效果。",
+  "settings.workbenchBackground.architectural": "建築構景",
+  "settings.workbenchBackground.midnightGrid": "午夜網格",
+  "settings.workbenchBackground.monochromeStudio": "黑白工作室",
+  "settings.workbenchBackground.nightCity": "城市夜景",
+  "settings.workbenchBackground.none": "無背景圖片",
+  "settings.workbenchBackground.brightness": "背景亮度",
+  "settings.workbenchBackground.overlay": "暗色遮罩",
+  "settings.workbenchBackground.blur": "模糊強度",
+  "settings.workbenchBackground.reset": "恢復預設",
+  "settings.workbenchBackground.resetDone": "已恢復預設工作台背景",
+  "settings.workbenchBackground.packManaged": "目前主題自帶背景。停用該主題後即可使用工作台背景庫。",
+  "settings.workbenchBackground.performanceHint": "較高的模糊強度會增加桌面版 GPU 佔用。",
   "settings.themeGallery.baseStyle": "基礎配色",
   "settings.themeGallery.baseLockedByPack": "基礎配色由目前主題管理，停用主題後可修改。",
   "settings.themeGallery.tabBase": "基礎配色",

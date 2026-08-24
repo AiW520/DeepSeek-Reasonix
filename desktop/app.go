@@ -125,8 +125,15 @@ type PromptHistoryResult struct {
 // flow the other way: each tab's controller emits to a tabEventSink that
 // forwards events tagged with tabId to the webview via runtime.EventsEmit.
 type App struct {
-	ctx          context.Context
-	workspaceHub *workspaceChangeHub
+	ctx                    context.Context
+	workspaceHub           *workspaceChangeHub
+	githubHTTPClient       *http.Client
+	githubAPIBase          string
+	githubWebBase          string
+	githubClientID         string
+	githubCredentialGet    func(string) (string, error)
+	githubCredentialSet    func(string, string) error
+	githubCredentialDelete func(string) error
 
 	// sessionCatalog is a disposable, asynchronously opened projection of
 	// authoritative session sidecars. Project-shell APIs must tolerate nil here:
@@ -157,6 +164,11 @@ type App struct {
 	// taskControl). One instance serializes control operations in-process.
 	taskCtrl     *taskmonitor.ControlService
 	taskCtrlOnce sync.Once
+
+	// project analysis tasks are local, read-only reconnaissance jobs. The map
+	// owns cancellation and immutable result snapshots for the learning workspace.
+	projectAnalysisMu   sync.RWMutex
+	projectAnalysisJobs map[string]*projectAnalysisJob
 
 	// mu protects the tab map, tabOrder, activeTabID, and per-tab fields that are read
 	// from bound methods. All bound methods that touch a controller use activeCtrl().
@@ -314,7 +326,8 @@ type App struct {
 	notificationSenderOnce sync.Once
 	notificationSender     notify.Sender
 
-	runtimeEvents asyncRuntimeEmitter
+	runtimeEvents     asyncRuntimeEmitter
+	developmentStudio *developmentStudioManager
 
 	// terminals owns local PTY/ConPTY sessions. It is intentionally separate
 	// from chat runtimes: terminal lifecycle must never acquire App.mu or the
@@ -428,6 +441,7 @@ func NewApp() *App {
 	a.desktopShell.linuxRecovery = newLinuxWebKitRecoveryCoordinator(a)
 	a.desktopShell.coordinator = newDesktopShellCoordinator(a)
 	a.workspaceHub = newWorkspaceChangeHub(a)
+	a.developmentStudio = newDevelopmentStudioManager(a)
 	a.terminals = newTerminalManager(a)
 	a.botBridge = a.newBotBridge()
 	return a

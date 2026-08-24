@@ -14193,6 +14193,96 @@ body > .mermaid-diagram--fullscreen {
     margin-left: 0;
   }
 }
+.marketplace {
+  margin: 0 0 24px;
+  color: var(--text);
+}
+
+.marketplace__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 150px;
+  padding: 24px 26px;
+  overflow: hidden;
+  color: #f7f9ff;
+  background:
+    linear-gradient(90deg, rgba(10, 14, 22, .94), rgba(10, 14, 22, .62)),
+    url("/backgrounds/workbench-night-city.webp") center 54% / cover;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(3, 8, 18, .2);
+}
+
+.marketplace__hero h3,
+.marketplace-dialog h3 {
+  margin: 7px 0 6px;
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.marketplace__hero p { max-width: 610px; margin: 0; color: rgba(247, 249, 255, .72); line-height: 1.6; }
+.marketplace__eyebrow { display: inline-flex; align-items: center; gap: 7px; color: #75e1b8; font-size: 11px; font-weight: 750; letter-spacing: .08em; }
+.marketplace__trust { display: flex; align-items: center; gap: 11px; flex: 0 0 auto; padding: 12px 15px; color: #dffcef; background: rgba(6, 16, 17, .62); border: 1px solid rgba(117, 225, 184, .32); border-radius: 6px; backdrop-filter: blur(12px); }
+.marketplace__trust span { display: grid; gap: 2px; }
+.marketplace__trust small { color: rgba(223, 252, 239, .62); }
+.marketplace__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 13px; }
+.marketplace__search { display: flex; align-items: center; gap: 9px; width: min(340px, 100%); min-height: 38px; padding: 0 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+.marketplace__search input { width: 100%; min-width: 0; color: var(--text); background: transparent; border: 0; outline: 0; }
+.marketplace__categories { display: flex; gap: 3px; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+.marketplace__categories button { min-height: 30px; padding: 0 12px; color: var(--muted); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
+.marketplace__categories button.is-active { color: var(--text); background: var(--surface-strong, rgba(127, 127, 127, .14)); box-shadow: inset 0 0 0 1px var(--border); }
+.marketplace__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
+.marketplace-card { display: flex; flex-direction: column; min-width: 0; min-height: 260px; padding: 17px; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: 7px; transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
+.marketplace-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); box-shadow: 0 12px 28px rgba(0, 0, 0, .11); }
+.marketplace-card__top { display: flex; align-items: flex-start; justify-content: space-between; }
+.marketplace-card__icon { display: grid; place-items: center; width: 38px; height: 38px; color: #d4fff0; background: #17634d; border-radius: 7px; }
+.marketplace-card__icon svg { width: 19px; }
+.marketplace-card__icon--video { color: #fff1d2; background: #9b542f; }
+.marketplace-card__icon--programming { color: #e3edff; background: #365e96; }
+.marketplace-card h4 { margin: 15px 0 7px; font-size: 15px; letter-spacing: 0; }
+.marketplace-card > p { min-height: 54px; margin: 0 0 12px; overflow: hidden; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.marketplace-card__chips { display: flex; flex-wrap: wrap; gap: 5px; min-height: 24px; }
+.marketplace-card__chips span { padding: 3px 7px; color: var(--muted); font-size: 10px; background: color-mix(in srgb, var(--surface) 75%, var(--accent) 10%); border: 1px solid var(--border-soft); border-radius: 4px; }
+.marketplace-card__meta { display: flex; align-items: center; gap: 8px; margin: auto 0 11px; padding-top: 15px; color: var(--muted); font-size: 10px; }
+.marketplace-card__meta code { margin-left: auto; }
+.marketplace-card__install { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 36px; color: var(--text); background: transparent; border: 1px solid var(--border); border-radius: 5px; cursor: pointer; }
+.marketplace-card__install:hover:not(:disabled) { color: #f3fff9; background: #17634d; border-color: #287e64; }
+.marketplace-card__install:disabled { opacity: .58; cursor: default; }
+.marketplace-risk { padding: 3px 7px; color: #2e775f; font-size: 10px; font-weight: 700; background: rgba(72, 193, 148, .12); border: 1px solid rgba(72, 193, 148, .22); border-radius: 4px; }
+.marketplace-risk--medium { color: #a86628; background: rgba(214, 141, 62, .12); border-color: rgba(214, 141, 62, .24); }
+.marketplace-risk--high { color: #c44c52; background: rgba(211, 72, 81, .12); border-color: rgba(211, 72, 81, .24); }
+.marketplace-dialog-backdrop { position: fixed; z-index: var(--z-modal); inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(3, 7, 12, .66); backdrop-filter: blur(6px); }
+.marketplace-dialog { width: min(620px, 100%); max-height: min(760px, calc(100vh - 44px)); overflow: auto; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 30px 90px rgba(0, 0, 0, .42); }
+.marketplace-dialog header { display: flex; justify-content: space-between; align-items: flex-start; padding: 21px 22px 15px; border-bottom: 1px solid var(--border); }
+.marketplace-dialog header h3 { font-size: 20px; }
+.marketplace-dialog header button { display: grid; place-items: center; width: 32px; height: 32px; color: var(--muted); background: transparent; border: 1px solid var(--border); border-radius: 5px; }
+.marketplace-dialog__loading { padding: 36px 22px; color: var(--muted); }
+.marketplace-dialog__source { display: grid; gap: 6px; margin: 18px 22px 10px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+.marketplace-dialog__source span { color: var(--muted); font-size: 12px; }
+.marketplace-dialog__source code { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; }
+.marketplace-dialog__actions { display: grid; gap: 8px; padding: 0 22px; }
+.marketplace-plan { padding: 13px 14px; border: 1px solid var(--border); border-radius: 6px; }
+.marketplace-plan > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.marketplace-plan p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+.marketplace-plan small { display: block; margin-top: 6px; color: var(--muted); }
+.marketplace-fulltrust { margin-top: 9px; padding: 8px 10px; color: #e46b70; font: 700 11px var(--font-mono); background: rgba(211, 72, 81, .09); border-left: 3px solid #d34851; }
+.marketplace-dialog__notice { display: flex; align-items: flex-start; gap: 10px; margin: 14px 22px; padding: 12px; color: var(--muted); font-size: 12px; line-height: 1.5; background: rgba(72, 193, 148, .08); border: 1px solid rgba(72, 193, 148, .2); border-radius: 6px; }
+.marketplace-dialog__notice svg { flex: 0 0 auto; color: #2e8b6b; }
+.marketplace-dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 15px 22px 21px; }
+.marketplace-dialog footer .btn { display: inline-flex; align-items: center; gap: 7px; }
+
+@media (max-width: 1050px) { .marketplace__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .marketplace__hero { align-items: flex-start; flex-direction: column; padding: 19px; }
+  .marketplace__trust { width: 100%; }
+  .marketplace__toolbar { align-items: stretch; flex-direction: column; }
+  .marketplace__search { width: 100%; }
+  .marketplace__categories { overflow-x: auto; }
+  .marketplace__grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 .cap-skills {
   display: flex;
   flex-direction: column;
@@ -35114,6 +35204,55 @@ body > .mermaid-diagram--fullscreen {
   background: transparent;
 }
 
+/* Workbench scene asset. Kept outside the theme-pack contract so it can be
+   replaced without changing the Wails bridge or user theme data. */
+.theme-bg__workbench {
+  position: absolute;
+  inset: -14px;
+  display: none;
+  background-image: var(--workbench-bg-image, url("/backgrounds/workbench-architectural.webp"));
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: 50% 50%;
+  opacity: 0.82;
+  filter: brightness(var(--workbench-bg-brightness, 1)) blur(var(--workbench-bg-blur, 0px));
+}
+
+.app--workbench .theme-bg__workbench {
+  display: block;
+}
+
+.app--workbench .theme-bg {
+  display: block;
+}
+
+.app--workbench .theme-bg__image,
+.app--workbench .theme-bg__overlay {
+  display: none;
+}
+
+:root[data-theme-pack][data-theme-has-bg="true"] .app--workbench .theme-bg__workbench {
+  display: none;
+}
+
+:root[data-theme-pack][data-theme-has-bg="true"] .app--workbench .theme-bg__image {
+  display: block;
+}
+
+:root:not([data-theme-has-bg="true"]) .app--workbench .theme-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 10, 13, var(--workbench-bg-overlay, 0.18));
+}
+
+:root[data-theme-has-bg="true"] .app--workbench .theme-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 10, 13, 0.18);
+}
+
 :root[data-theme-scene="task"] .theme-bg__overlay {
   opacity: 1;
 }
@@ -35925,6 +36064,155 @@ body > .mermaid-diagram--fullscreen {
   font-weight: 500;
 }
 .appearance-overview__hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.workbench-background {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border, var(--border-soft));
+  border-radius: var(--r-l, 8px);
+  background: var(--bg-elev, var(--panel));
+}
+.workbench-background__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.workbench-background__heading .appearance-overview__section-label { margin-bottom: 3px; }
+.workbench-background__heading p {
+  max-width: 640px;
+  margin: 0;
+  color: var(--fg-faint);
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.45;
+}
+.workbench-background__reset { flex: 0 0 auto; }
+.workbench-background__pack-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-soft));
+  border-radius: var(--r-s, 5px);
+  background: color-mix(in srgb, var(--accent-soft) 32%, transparent);
+  color: var(--fg-dim);
+  font-size: var(--text-xs, 0.75rem);
+}
+.workbench-background__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.workbench-background__card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  padding: 5px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r, 7px);
+  background: var(--bg);
+  color: var(--fg-dim);
+  text-align: left;
+  cursor: pointer;
+}
+.workbench-background__card:hover:not(:disabled),
+.workbench-background__card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  color: var(--fg);
+  outline: none;
+}
+.workbench-background__card--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--fg);
+}
+.workbench-background__card:disabled { cursor: not-allowed; opacity: 0.48; }
+.workbench-background__preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg-soft);
+}
+.workbench-background__preview img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.workbench-background__none {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, transparent 47%, color-mix(in srgb, var(--err) 72%, transparent) 48% 52%, transparent 53%),
+    var(--bg-soft);
+}
+.workbench-background__check {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.workbench-background__name {
+  min-height: 30px;
+  padding: 0 2px 2px;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.workbench-background__controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 2px;
+}
+.workbench-background__controls[aria-disabled="true"] { opacity: 0.48; }
+.workbench-background__control {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+.workbench-background__control > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--fg-dim);
+  font-size: var(--text-xs, 0.75rem);
+}
+.workbench-background__control output {
+  min-width: 38px;
+  color: var(--fg);
+  font: 600 var(--text-xs, 0.75rem) var(--font-mono);
+  text-align: right;
+}
+.workbench-background__control input[type="range"] {
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.workbench-background__control input[type="range"]:disabled { cursor: not-allowed; }
+.workbench-background__performance-note {
+  color: var(--fg-faint);
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.4;
+}
 .appearance-overview__rows {
   display: flex; flex-direction: column;
   border: 1px solid var(--border, var(--border-soft));
@@ -36022,6 +36310,10 @@ body > .mermaid-diagram--fullscreen {
   .appearance-overview__control-stack { align-items: stretch; }
   .appearance-overview__lock-note { justify-content: flex-start; text-align: left; }
   .appearance-overview__row--footer { grid-template-columns: 1fr; }
+  .workbench-background__heading { align-items: stretch; flex-direction: column; }
+  .workbench-background__reset { align-self: flex-start; }
+  .workbench-background__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workbench-background__controls { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Detailed typography settings (master-detail). */
@@ -38127,6 +38419,116 @@ body > .mermaid-diagram--fullscreen {
    padding that would otherwise waste space between the status bar and terminal. */
 .footer.footer--compact {
   padding-bottom: 4px !important;
+}
+
+/* -------------------------------------------------------------------------
+   Super Workbench scene
+   ------------------------------------------------------------------------- */
+.app--workbench .layout {
+  background: transparent;
+}
+
+.app--workbench .sidebar,
+.app--workbench .chat-pane,
+.app--workbench .workbench-dock,
+.app--workbench .statusbar {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+:root[data-theme-style] .app--workbench .sidebar,
+:root[data-theme-style] .app--workbench .workbench-dock,
+:root[data-theme-style] .app--workbench .statusbar {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+.app--workbench .sidebar {
+  border-right-color: color-mix(in srgb, var(--border-soft) 78%, transparent);
+}
+
+.app--workbench .chat-pane {
+  background: color-mix(in srgb, var(--chat-bg) 68%, transparent);
+}
+
+:root[data-theme-style] .app--workbench .chat-pane {
+  background: color-mix(in srgb, var(--chat-bg) 68%, transparent);
+}
+
+.app--workbench .topicbar,
+.app--workbench .app-chrome,
+.app--workbench .workbench-dock__tools {
+  background: color-mix(in srgb, var(--bg-elev) 78%, transparent);
+}
+
+:root[data-theme-style] .app--workbench .topicbar,
+:root[data-theme-style] .app--workbench .app-chrome,
+:root[data-theme-style] .app--workbench .workbench-dock__tools {
+  background: color-mix(in srgb, var(--bg-elev) 78%, transparent);
+}
+
+.app--workbench .transcript {
+  background: transparent;
+}
+
+.app--workbench .composer-card,
+.app--workbench .process-card,
+.app--workbench .welcome__ex {
+  background: color-mix(in srgb, var(--bg-elev) 86%, transparent);
+  border-color: color-mix(in srgb, var(--border) 78%, transparent);
+}
+
+/* Mirror the theme-pack compositor strategy on Windows. The transcript keeps
+   an opaque backing for reliable WebView2 repainting, then redraws the fixed
+   Workbench image and readability wash inside that isolated surface. */
+:root:not([data-theme-has-bg="true"])[data-platform="windows"] .app.app--workbench .chat-pane > .main > .transcript-shell > .transcript {
+  --windows-workbench-pane-alpha: 0.68;
+  position: relative;
+  isolation: isolate;
+  clip-path: inset(0);
+  background-color: Canvas !important;
+  background-image: linear-gradient(var(--bg), var(--bg)) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+}
+
+:root:not([data-theme-has-bg="true"])[data-platform="windows"] .app.app--workbench .chat-pane > .main > .transcript-shell > .transcript::before {
+  content: "";
+  position: fixed;
+  inset: -4%;
+  z-index: var(--z-transcript-scene-image);
+  pointer-events: none;
+  background-image: var(--workbench-bg-image, url("/backgrounds/workbench-architectural.webp"));
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: 50% 50%;
+  opacity: 0.82;
+  filter: brightness(var(--workbench-bg-brightness, 1)) blur(var(--workbench-bg-blur, 0px));
+}
+
+:root:not([data-theme-has-bg="true"])[data-platform="windows"] .app.app--workbench .chat-pane > .main > .transcript-shell > .transcript::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-transcript-scene-overlay);
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(7, 10, 13, var(--workbench-bg-overlay, 0.18)), rgba(7, 10, 13, var(--workbench-bg-overlay, 0.18))),
+    color-mix(in srgb, var(--chat-bg, var(--bg)) calc(var(--windows-workbench-pane-alpha) * 100%), transparent);
+}
+
+:root:not([data-theme-has-bg="true"])[data-platform="windows"] .app.app--workbench .chat-pane > .main > .transcript-shell > .transcript > * {
+  position: relative;
+  z-index: var(--z-transcript-content);
+}
+
+@media (max-width: 760px) {
+  .app--workbench .theme-bg__workbench {
+    background-position: 62% 50%;
+    opacity: 0.68;
+  }
+
+  .app--workbench .chat-pane {
+    background: color-mix(in srgb, var(--chat-bg) 91%, transparent);
+  }
 }
 
 /* Classic and Workbench share the same compact four-view strip at the dock's

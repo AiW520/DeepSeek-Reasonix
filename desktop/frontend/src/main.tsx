@@ -13,6 +13,7 @@ import { ToastProvider } from "./lib/toast";
 import { initFontFamily } from "./lib/fontFamily";
 import { initTextSize } from "./lib/textSize";
 import { initTypographyPreferences } from "./lib/typographyPreferences";
+import { initWorkbenchBackgroundPreferences } from "./lib/workbenchBackground";
 import { initTheme } from "./lib/theme";
 import { initConversationWidth } from "./lib/conversationWidth";
 import appShellStylesheetURL from "./styles.css?url";
@@ -48,6 +49,7 @@ initConversationWidth();
 initTextSize();
 initFontFamily();
 initTypographyPreferences();
+initWorkbenchBackgroundPreferences();
 
 // Pre-warm font fallback stacks so the first frame doesn't flicker between the
 // browser default font and the app's configured typeface. Inserting a hidden span

@@ -1564,6 +1564,9 @@ func (s *tabEventSink) Emit(e event.Event) {
 		}
 	}
 	s.emitRuntimeEvent(eventChannel, toWireTabWithSubmission(e, tabID, s.runtimeEpochSnapshot(), s.submissionIDSnapshot(), turnStartedAt))
+	if app != nil && app.developmentStudio != nil {
+		app.developmentStudio.Observe(tabID, e)
+	}
 	if app != nil {
 		if status, update := topicActivityStatusFromEvent(e); update {
 			changed := app.setTabActivityStatus(tabID, status)

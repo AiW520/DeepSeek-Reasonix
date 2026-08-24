@@ -7,6 +7,7 @@ export function ThemeBackground() {
     <div className="theme-bg" aria-hidden="true">
       <div className="theme-bg__image" />
       <div className="theme-bg__overlay" />
+      <div className="theme-bg__workbench" />
     </div>
   );
 }

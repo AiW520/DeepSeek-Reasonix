@@ -44,6 +44,7 @@ type PluginInstallOptions struct {
 	Link    bool   `json:"link,omitempty"`
 	Replace bool   `json:"replace,omitempty"`
 	Name    string `json:"name,omitempty"`
+	PlanID  string `json:"planId,omitempty"`
 }
 
 type PluginSkillView struct {
@@ -353,6 +354,9 @@ func (a *App) runPluginInstallSource(source string, opts PluginInstallOptions, a
 	}
 	if strings.TrimSpace(opts.Name) != "" {
 		body["name"] = strings.TrimSpace(opts.Name)
+	}
+	if strings.TrimSpace(opts.PlanID) != "" {
+		body["planId"] = strings.TrimSpace(opts.PlanID)
 	}
 	raw, _ := json.Marshal(body)
 	tl := installsource.NewTool(installsource.Options{ProjectRoot: a.activeWorkspaceRoot()})

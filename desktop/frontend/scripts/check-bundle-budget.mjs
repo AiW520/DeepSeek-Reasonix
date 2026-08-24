@@ -68,13 +68,22 @@ console.log("\nbundle budgets");
 // blank-project flow landed; project-topic sort invalidation and request
 // ordering add another bounded 0.2 KiB. Retain both owner boundaries with a
 // narrowly rounded 1 KiB ratchet.
-assertBudget("initial JavaScript gzip", initialJSGzip, 425.0 * 1024);
+// Project Atlas adds one lazy surface pointer and a first-class navigation
+// command to App.tsx. The analysis UI itself remains outside the initial graph;
+// keep the unavoidable launcher delta bounded to a 0.6 KiB ratchet.
+// Three-AI Studio adds one lazy surface pointer, dock tab, and render branch;
+// its panel, localized copy, and browser fixtures remain deferred. Bound the
+// measured launcher-only increase to a further 0.4 KiB ratchet.
+assertBudget("initial JavaScript gzip", initialJSGzip, 426.0 * 1024);
 assertBudget("largest initial JavaScript chunk gzip", largestInitialJS, 280 * 1024);
 assertBudget("render-blocking CSS gzip", initialCSSGzip, 4 * 1024);
 // Extension surfaces, Task Monitor, and compact decision receipts share the
 // application stylesheet loaded before React mounts. Keep their combined
 // allowance bounded even though the file is no longer render-blocking.
-assertBudget("deferred app-shell CSS gzip", appShellCSSGzip, 114 * 1024);
+// The curated plugin/skill marketplace adds its responsive card grid and
+// security-review dialog to the deferred application stylesheet. Keep the
+// increase narrowly bounded rather than weakening startup JavaScript gates.
+assertBudget("deferred app-shell CSS gzip", appShellCSSGzip, 115.5 * 1024);
 if (localeChunks.length !== 2) {
   throw new Error(`expected 2 on-demand Chinese locale chunks, found ${localeChunks.length}`);
 }
@@ -87,7 +96,7 @@ for (const path of localeChunks) {
   // compaction settings add 40 bytes gzip of policy guidance to simplified
   // Chinese, while scheduled billing adds compact rate-band labels/tooltips.
   // Retain both with the smallest 0.1 KiB ratchet increment per locale.
-  const budget = name.startsWith("zh-TW-") ? 55.9 * 1024 : 55.2 * 1024;
+  const budget = name.startsWith("zh-TW-") ? 56.3 * 1024 : 55.5 * 1024;
   assertBudget(`${name} gzip`, gzipBytes(path), budget);
 }
 
@@ -95,5 +104,10 @@ const rawInitialBytes = [...initialJS, ...initialCSS, ...appShellCSS]
   .reduce((total, path) => total + statSync(path).size, 0);
 // The maintained Virtuoso engine adds 49.1 KiB raw (2.2%) over the previous
 // 2268.7 KiB gate. Retain 1% headroom to bound hash/minifier drift.
-assertBudget("initial raw JavaScript and CSS", rawInitialBytes, 2_341 * 1024);
+// Project Atlas keeps its 17 KiB workspace chunk lazy; only the launcher and
+// bridge contract affect startup. Bound their minifier-sensitive raw delta to
+// the measured 4 KiB without relaxing the largest-chunk gate.
+// Three-AI Studio keeps the full panel and fixtures deferred; its dock launcher
+// adds 1.7 KiB raw. Keep that exact navigation delta bounded as well.
+assertBudget("initial raw JavaScript and CSS", rawInitialBytes, 2_346.9 * 1024);
 assertBudget("largest initial JavaScript chunk raw", largestInitialJSRaw, 1_000 * 1024);

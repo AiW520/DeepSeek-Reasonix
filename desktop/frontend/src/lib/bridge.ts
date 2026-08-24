@@ -49,6 +49,9 @@ import type {
   ContextPanelInfo,
   DirEntry,
   DesktopStartupSettingsView,
+  DevelopmentStudioConfig,
+  DevelopmentStudioEvent,
+  DevelopmentStudioSnapshot,
   DeliveryWorktreeAvailability,
   DeliveryWorktreeOpenResult,
   DroppedItem,
@@ -87,8 +90,10 @@ import type {
   ModelInfo,
   NetworkView,
   PluginInstallOptions,
+  MarketplaceCatalogView,
   PluginView,
   ProjectNode,
+  ProjectAnalysisJobView,
   ProjectTreeOrganizationBindings,
   RecoveryLineageView,
   RecoveryCleanupRequest,
@@ -126,6 +131,10 @@ import type {
   WorkspaceRevisions,
   GitCommitView,
   GitCommitDetailView,
+  GitHubConnectionView,
+  GitHubDeviceFlowPollResult,
+  GitHubDeviceFlowStart,
+  GitHubRepositoryPage,
   WorkspaceView,
   SessionClearResult,
 } from "./types";
@@ -335,6 +344,10 @@ export interface AppBindings extends SessionCatalogBindings, ProjectTreeOrganiza
   ScanPromptHistory(nonce: string): Promise<PromptHistoryResult>;
   ListWorkspaces(): Promise<WorkspaceView[]>;
   PickWorkspace(): Promise<string>;
+  PickProjectAnalysisRoot(): Promise<string>;
+  StartProjectAnalysis(root: string): Promise<ProjectAnalysisJobView>;
+  ProjectAnalysisJob(id: string): Promise<ProjectAnalysisJobView>;
+  CancelProjectAnalysis(id: string): Promise<void>;
   SwitchWorkspace(path: string): Promise<string>;
   RemoveWorkspace(path: string): Promise<void>;
   ContextUsage(): Promise<ContextInfo>;
@@ -386,6 +399,21 @@ export interface AppBindings extends SessionCatalogBindings, ProjectTreeOrganiza
   SetPluginEnabled(name: string, enabled: boolean): Promise<void>;
   UpdatePlugin(name: string): Promise<string>;
   PluginDoctor(name: string): Promise<PluginView>;
+  MarketplaceCatalog(kind: string, query: string): Promise<MarketplaceCatalogView>;
+  PlanMarketplaceInstall(id: string): Promise<string>;
+  InstallMarketplace(id: string, planId: string): Promise<string>;
+  GitHubConnection(): Promise<GitHubConnectionView>;
+  StartGitHubDeviceFlow(): Promise<GitHubDeviceFlowStart>;
+  PollGitHubDeviceFlow(deviceCode: string): Promise<GitHubDeviceFlowPollResult>;
+  DisconnectGitHub(): Promise<void>;
+  GitHubRepositories(query: string, visibility: string, cursor: string): Promise<GitHubRepositoryPage>;
+  PickGitHubCloneParent(): Promise<string>;
+  CloneGitHubRepository(owner: string, repo: string, parentDir: string): Promise<{ path: string }>;
+  DevelopmentStudio(tabID: string): Promise<DevelopmentStudioSnapshot>;
+  SaveDevelopmentStudioConfig(input: DevelopmentStudioConfig): Promise<void>;
+  PauseDevelopmentStudio(tabID: string, paused: boolean): Promise<void>;
+  ClearDevelopmentStudio(tabID: string): Promise<void>;
+  RunFinalDevelopmentReview(tabID: string): Promise<void>;
   // Extension UI (stage 8b2): enumerate handshake-declared extension actions
   // for the command palette, invoke one, and deliver a form surface's values
   // (or {cancelled: true} on dismissal) back to the owning sidecar.
@@ -991,6 +1019,26 @@ export function onSessionRecoveryFailed(cb: (payload: SessionRecoveryFailedEvent
   return () => {};
 }
 
+const mockDevelopmentStudioListeners = new Set<(event: DevelopmentStudioEvent) => void>();
+
+export function onDevelopmentStudioEvent(cb: (event: DevelopmentStudioEvent) => void): () => void {
+  if (realApp() && typeof window !== "undefined" && window.runtime) {
+    return window.runtime.EventsOn("development:studio", (payload?: unknown) => {
+      if (payload && typeof payload === "object") cb(payload as DevelopmentStudioEvent);
+    });
+  }
+  mockDevelopmentStudioListeners.add(cb);
+  return () => mockDevelopmentStudioListeners.delete(cb);
+}
+
+function emitMockDevelopmentStudio(event: DevelopmentStudioEvent): void {
+  mockDevelopmentStudioListeners.forEach((listener) => listener(event));
+}
+
+async function loadDevelopmentStudioMock() {
+  return (await import("./developmentStudioMock")).developmentStudioMock;
+}
+
 export function onRemoteStatus(cb: (s: RemoteConnectionStatus) => void): () => void {
   if (realApp() && typeof window !== "undefined" && window.runtime) {
     return window.runtime.EventsOn("remote:status", (payload?: unknown) => cb((payload ?? {}) as RemoteConnectionStatus));
@@ -1347,6 +1395,70 @@ function mockExternalOpenerIconDataURL(color: string, label: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+function mockProjectAnalysisJob(root: string): ProjectAnalysisJobView {
+  const files = [
+    { path: "desktop/app.go", language: "Go", bytes: 383945, lines: 11842, hash: "6a3e92" },
+    { path: "desktop/frontend/src/App.tsx", language: "TypeScript", bytes: 224801, lines: 5486, hash: "c1b45f" },
+    { path: "internal/agent/agent.go", language: "Go", bytes: 93124, lines: 2840, hash: "1e0c7d" },
+    { path: "internal/projectiondb/projectiondb.go", language: "Go", bytes: 15420, lines: 392, hash: "8ff24d" },
+    { path: "go.mod", bytes: 5120, lines: 142, hash: "17c0aa" },
+    { path: "desktop/frontend/package.json", bytes: 4803, lines: 74, hash: "ca79c1" },
+  ];
+  const symbols = [
+    { name: "App", kind: "type", file: "desktop/app.go", line: 127, signature: "type App struct" },
+    { name: "NewApp", kind: "function", file: "desktop/app.go", line: 420, signature: "func NewApp() *App" },
+    { name: "App", kind: "function", file: "desktop/frontend/src/App.tsx", line: 1050, signature: "export default function App()" },
+    { name: "Open", kind: "function", file: "internal/projectiondb/projectiondb.go", line: 72, signature: "func Open(ctx context.Context, opts OpenOptions)" },
+    { name: "Controller", kind: "type", file: "internal/agent/agent.go", line: 81, signature: "type Controller struct" },
+  ];
+  const dependencies = [
+    { from: "desktop/app.go", to: "reasonix/internal/agent", kind: "import", source: "desktop/app.go", line: 36 },
+    { from: "desktop/app.go", to: "reasonix/internal/projectiondb", kind: "import", source: "desktop/app.go", line: 44 },
+    { from: "desktop/frontend/src/App.tsx", to: "./lib/bridge", kind: "import", source: "desktop/frontend/src/App.tsx", line: 31 },
+    { from: "desktop/frontend/src/App.tsx", to: "./components/ProjectTree", kind: "import", source: "desktop/frontend/src/App.tsx", line: 42 },
+  ];
+  const evidence = [
+    { id: "ev-001", kind: "manifest", title: "Go + Wails 桌面应用", sourceFile: "desktop/go.mod", line: 1, confidence: 0.99, detail: "Wails 桌面模块与 Go toolchain" },
+    { id: "ev-002", kind: "manifest", title: "React + TypeScript 前端", sourceFile: "desktop/frontend/package.json", line: 18, confidence: 0.99, detail: "React、Vite 与 TypeScript 依赖" },
+    { id: "ev-003", kind: "manifest", title: "SQLite 本地投影", sourceFile: "go.mod", line: 47, confidence: 0.98, detail: "modernc.org/sqlite" },
+    { id: "ev-004", kind: "manifest", title: "项目包含容器部署线索", sourceFile: "Dockerfile", line: 1, confidence: 0.91, detail: "容器构建清单" },
+  ];
+  return {
+    id: "analysis-browser-preview",
+    root,
+    state: "completed",
+    phase: "完成",
+    done: 1284,
+    total: 1284,
+    startedAt: new Date().toISOString(),
+    result: {
+      projectId: "reasonix-preview",
+      root,
+      name: "DeepSeek-Reasonix",
+      analyzedAt: new Date().toISOString(),
+      durationMs: 6842,
+      files,
+      symbols,
+      dependencies,
+      evidence,
+      languages: ["Go", "TypeScript", "JavaScript", "Python"],
+      frameworks: ["Wails", "React", "Vite", "SQLite"],
+      packageManager: "pnpm + Go modules",
+      sensitiveFiles: [".env", "desktop/certificates/dev.p12"],
+      skippedFiles: 148,
+      errors: ["vendor/generated: 已按目录策略跳过"],
+      dataFlow: {
+        stage: "data_flow",
+        functions: 2874,
+        definitions: 18432,
+        uses: 42619,
+        flowEdges: 39108,
+        diagnostics: 0,
+      },
+    },
+  };
+}
+
 function makeMockApp(): AppBindings {
   const scenario = mockScenario();
   const freshMock = scenario === "fresh";
@@ -1372,6 +1484,7 @@ function makeMockApp(): AppBindings {
   let mockActiveThemeId = "";
   let mockBaseStyle = "graphite";
   let mockThemeMode: "auto" | "light" | "dark" = "dark";
+  let mockAnalysisJob: ProjectAnalysisJobView | null = null;
   // Vite rewrites these literal asset URLs in both dev and production builds.
   // Keeping them on the browser mock makes local visual acceptance match the
   // Wails bridge, whose ListThemePacks response carries the same two URLs.
@@ -1538,6 +1651,8 @@ function makeMockApp(): AppBindings {
     },
   ];
   let capPlugins: PluginView[] = [];
+  let mockGitHubConnected = false;
+  let mockGitHubPolls = 0;
   const mockSwitchWorkspace = async (path: string) => {
     cwd = path || "~";
     workspaces = [cwd, ...workspaces.filter((p) => p !== cwd)].slice(0, 12);
@@ -3367,6 +3482,20 @@ function makeMockApp(): AppBindings {
       // the topbar folder chip visibly changes.
       return mockSwitchWorkspace(cwd.endsWith("another-project") ? "~/projects/reasonix" : "~/projects/another-project");
     },
+    async PickProjectAnalysisRoot() {
+      return cwd;
+    },
+    async StartProjectAnalysis(root: string) {
+      mockAnalysisJob = mockProjectAnalysisJob(root || cwd);
+      return JSON.parse(JSON.stringify(mockAnalysisJob)) as ProjectAnalysisJobView;
+    },
+    async ProjectAnalysisJob() {
+      if (!mockAnalysisJob) mockAnalysisJob = mockProjectAnalysisJob(cwd);
+      return JSON.parse(JSON.stringify(mockAnalysisJob)) as ProjectAnalysisJobView;
+    },
+    async CancelProjectAnalysis() {
+      if (mockAnalysisJob) mockAnalysisJob.state = "cancelled";
+    },
     async SwitchWorkspace(path: string) {
       return mockSwitchWorkspace(path);
     },
@@ -3688,6 +3817,67 @@ function makeMockApp(): AppBindings {
         actions: [{ kind: "plugin", action: "install_plugin_package", name, source, status: "planned" }],
       });
     },
+    async MarketplaceCatalog(kind: string, query: string) {
+      const entries = [
+        { id: "plugin-superpowers", kind: "plugin", name: "Superpowers", description: "Battle-tested software development workflow with planning, TDD, debugging, and review skills.", category: "programming", repository: "https://github.com/obra/superpowers", commit: "b36e0829c6d0140e93cfef2ca599b1b07d4a7797", license: "MIT", author: "obra", capabilities: ["skills", "commands"], risk: "medium", riskReasons: ["Installs a multi-skill plugin package"] },
+        { id: "plugin-agents", kind: "plugin", name: "Agents", description: "Curated specialist agents and developer workflow plugins for daily engineering work.", category: "work", repository: "https://github.com/wshobson/agents", commit: "367cb6a4a182cf7e9b0a17c9429f7411ddd9cf35", license: "MIT", author: "wshobson", capabilities: ["skills", "agents", "commands"], risk: "medium", riskReasons: ["May add agents and command handlers"] },
+        { id: "plugin-claude-community", kind: "plugin", name: "Claude Plugins Community", description: "Community-maintained plugin collection with reusable productivity capabilities.", category: "work", repository: "https://github.com/anthropics/claude-plugins-community", commit: "24a5ecd5dd88e201e185e1174b7797a4e857dd67", license: "Apache-2.0", author: "Anthropic community", capabilities: ["plugins", "skills"], risk: "medium", riskReasons: ["Community package; review capabilities before approval"] },
+        { id: "skill-video-shotcraft", kind: "skill", name: "Video Shotcraft", description: "Plan and execute polished video shot lists, coverage, and production workflows.", category: "video", repository: "https://github.com/Vincentwei1021/video-shotcraft/tree/0d6f0b57f0d4d6700761644c07f7ef03c3e50234", commit: "0d6f0b57f0d4d6700761644c07f7ef03c3e50234", license: "Apache-2.0", author: "Vincentwei1021", capabilities: ["skill"], risk: "low" },
+        { id: "skill-video-kit", kind: "skill", name: "Claude Video Kit", description: "A structured assistant workflow for scripting, editing and delivering video projects.", category: "video", repository: "https://github.com/runesleo/claude-video-kit/tree/f09790c6e90e610b9dbdec0d1983bd5abeecd0bf", commit: "f09790c6e90e610b9dbdec0d1983bd5abeecd0bf", license: "MIT", author: "runesleo", capabilities: ["skill"], risk: "low" },
+        { id: "skill-remotion-motion", kind: "skill", name: "Remotion Motion Graphics", description: "Motion graphics planning and Remotion production guidance for code-driven video.", category: "video", repository: "https://github.com/haidrrrry/claude-remotion-skill/tree/1dcbe5e3fc6cf970bd10d3cc05f0a8a5d19d0383", commit: "1dcbe5e3fc6cf970bd10d3cc05f0a8a5d19d0383", license: "MIT", author: "haidrrrry", capabilities: ["skill"], risk: "low" },
+      ];
+      const q = query.trim().toLowerCase();
+      return { entries: entries.filter((e) => (kind === "all" || e.kind === kind) && (!q || `${e.name} ${e.description} ${e.category}`.toLowerCase().includes(q))), cached: true } as MarketplaceCatalogView;
+    },
+    async PlanMarketplaceInstall(id: string) {
+      const c = await this.MarketplaceCatalog("all", ""); const e = c.entries.find((x) => x.id === id); if (!e) throw new Error("Marketplace item not found");
+      return JSON.stringify({ ok: true, status: "planned", planId: `mock-${id}`, kind: e.kind, actions: [{ kind: e.kind, action: e.kind === "plugin" ? "install_plugin_package" : "copy_skill", name: e.name, source: e.repository, commit: e.commit, riskLevel: e.risk, riskReasons: e.riskReasons, status: "planned" }] });
+    },
+    async InstallMarketplace(id: string, planId: string) {
+      const c = await this.MarketplaceCatalog("all", ""); const e = c.entries.find((x) => x.id === id); if (!e) throw new Error("Marketplace item not found");
+      if (!planId) throw new Error("安全预检计划已失效，请重新预检");
+      if (e.kind === "plugin") return this.InstallPlugin(e.repository, { planId, name: e.name });
+      if (!capSkills.some((s) => s.name === e.name)) capSkills.push({ name: e.name, description: e.description, scope: "global", runAs: "inline", enabled: true });
+      return JSON.stringify({ ok: true, status: "done", planId, kind: "skill", actions: [{ kind: "skill", name: e.name, status: "done" }] });
+    },
+    async GitHubConnection() {
+      return mockGitHubConnected
+        ? { configured: true, connected: true, login: "reasonix-builder", name: "Reasonix Builder", avatarUrl: "https://avatars.githubusercontent.com/u/9919?v=4", profileUrl: "https://github.com/reasonix-builder", scopes: "repo, read:user" }
+        : { configured: true, connected: false };
+    },
+    async DevelopmentStudio(tabID) {
+      return (await loadDevelopmentStudioMock()).snapshot(tabID);
+    },
+    async SaveDevelopmentStudioConfig(input) { (await loadDevelopmentStudioMock()).save(input); },
+    async PauseDevelopmentStudio(tabID, paused) {
+      emitMockDevelopmentStudio((await loadDevelopmentStudioMock()).pause(tabID, paused));
+    },
+    async ClearDevelopmentStudio() { (await loadDevelopmentStudioMock()).clear(); },
+    async RunFinalDevelopmentReview(tabID) {
+      emitMockDevelopmentStudio((await loadDevelopmentStudioMock()).runFinal(tabID));
+    },
+    async StartGitHubDeviceFlow() {
+      mockGitHubPolls = 0;
+      return { deviceCode: "mock-device-code", userCode: "RXNX-2026", verificationUri: "https://github.com/login/device", expiresIn: 900, interval: 2 };
+    },
+    async PollGitHubDeviceFlow() {
+      mockGitHubPolls += 1;
+      if (mockGitHubPolls < 2) return { status: "pending", connection: { configured: true, connected: false } };
+      mockGitHubConnected = true;
+      return { status: "connected", connection: await this.GitHubConnection() };
+    },
+    async DisconnectGitHub() { mockGitHubConnected = false; },
+    async GitHubRepositories(query: string, visibility: string) {
+      const repos = [
+        { id: 1, owner: "reasonix-builder", name: "super-workbench", fullName: "reasonix-builder/super-workbench", description: "Desktop AI command center with plugins, skills, and secure automations.", private: false, fork: false, language: "TypeScript", defaultBranch: "main", htmlUrl: "https://github.com/reasonix-builder/super-workbench", cloneUrl: "https://github.com/reasonix-builder/super-workbench.git", updatedAt: "2026-08-19T14:20:00Z", stars: 1280 },
+        { id: 2, owner: "reasonix-builder", name: "video-pipeline", fullName: "reasonix-builder/video-pipeline", description: "Automated video production workspace and rendering recipes.", private: true, fork: false, language: "Python", defaultBranch: "main", htmlUrl: "https://github.com/reasonix-builder/video-pipeline", cloneUrl: "https://github.com/reasonix-builder/video-pipeline.git", updatedAt: "2026-08-18T09:10:00Z", stars: 0 },
+        { id: 3, owner: "openai", name: "openai-agents-python", fullName: "openai/openai-agents-python", description: "A lightweight, powerful framework for multi-agent workflows.", private: false, fork: false, language: "Python", defaultBranch: "main", htmlUrl: "https://github.com/openai/openai-agents-python", cloneUrl: "https://github.com/openai/openai-agents-python.git", updatedAt: "2026-08-17T18:05:00Z", stars: 15400 },
+      ];
+      const needle = query.trim().toLowerCase();
+      return { repositories: repos.filter((repo) => (visibility === "all" || (visibility === "private") === repo.private) && (!needle || `${repo.fullName} ${repo.description}`.toLowerCase().includes(needle))) };
+    },
+    async PickGitHubCloneParent() { return "C:\\Users\\demo\\Projects"; },
+    async CloneGitHubRepository(_owner: string, repo: string, parentDir: string) { return { path: `${parentDir}\\${repo}` }; },
     async InstallPlugin(source: string, options: PluginInstallOptions) {
       const name = options.name || source.split("/").filter(Boolean).pop()?.replace(/\.git$/, "") || "plugin";
       const existing = capPlugins.findIndex((p) => p.name === name);

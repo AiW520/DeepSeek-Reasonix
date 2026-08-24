@@ -11,6 +11,7 @@ import { InlineConfirmButton } from "./InlineConfirmButton";
 import { ResizableDrawer } from "./ResizableDrawer";
 import { Tooltip } from "./Tooltip";
 import { ModalCloseButton } from "./ModalCloseButton";
+import { MarketplaceSection } from "./MarketplaceSection";
 
 // CapabilitiesPanel is the desktop MCP & Skills drawer — the GUI counterpart to
 // the CLI's /mcp + /skill, aligning with Claude Code's Customize → Connectors:
@@ -1800,6 +1801,7 @@ export function PluginsSettingsPage() {
 
 	return (
 		<section className="mem-section">
+			<MarketplaceSection kind="plugin" installedNames={(plugins ?? []).map((p) => p.name)} onInstalled={reload} />
 			{err && <div className="banner banner--error">{err}</div>}
 			{notice && !err && <div className="banner banner--success">{notice}</div>}
 			<div className="cap-plugin-installer">
@@ -3390,6 +3392,7 @@ export function SkillsSettingsPage({ activeWorkspaceKey = "" }: { activeWorkspac
 
 	return (
 		<section className="mem-section">
+			<MarketplaceSection kind="skill" installedNames={view.skills.map((skill) => skill.name)} onInstalled={reload} />
 			{err && <div className="banner banner--error">{err}</div>}
 			<div className="cap-search">
 				<input

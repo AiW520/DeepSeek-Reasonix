@@ -1311,7 +1311,14 @@ export interface PluginInstallOptions {
   link?: boolean;
   replace?: boolean;
   name?: string;
+  planId?: string;
 }
+export interface MarketplaceEntry {
+  id: string; kind: "plugin" | "skill"; name: string; description: string; category: string;
+  repository: string; commit: string; license: string; author: string; capabilities?: string[];
+  dependencies?: string[]; risk: "low" | "medium" | "high"; riskReasons?: string[];
+}
+export interface MarketplaceCatalogView { entries: MarketplaceEntry[]; cached: boolean; warning?: string; }
 export interface MCPServerInput {
   name: string;
   transport: string; // stdio | http | sse
@@ -1359,6 +1366,64 @@ export interface ModelInfo {
   provider: string;
   model: string;
   current: boolean;
+}
+
+export interface DevelopmentAIConfig {
+  enabled: boolean;
+  model: string;
+  effort: string;
+  maxSteps: number;
+  maxOutputTokens: number;
+}
+
+export interface DevelopmentStudioConfig {
+  enabled: boolean;
+  teachingMode: "beginner" | "engineer" | "expert";
+  realtime: DevelopmentAIConfig;
+  final: DevelopmentAIConfig;
+  minReviewIntervalMs: number;
+  turnTokenBudget: number;
+}
+
+export interface DevelopmentStudioEvent {
+  id: string;
+  tabId: string;
+  sequence: number;
+  at: number;
+  role: "lead" | "realtime" | "final" | "system" | string;
+  kind: string;
+  title: string;
+  detail?: string;
+  why?: string;
+  target?: string;
+  status?: string;
+  severity?: "blocker" | "high" | "suggestion" | "observe" | string;
+  model?: string;
+  tokens?: number;
+  cost?: number;
+  currency?: string;
+  paths?: string[];
+}
+
+export interface DevelopmentAIRuntime {
+  role: "lead" | "realtime" | "final" | string;
+  state: string;
+  model?: string;
+  lastRun?: number;
+  runs: number;
+  tokens: number;
+  cost: number;
+  currency?: string;
+}
+
+export interface DevelopmentStudioSnapshot {
+  config: DevelopmentStudioConfig;
+  paused: boolean;
+  lead: DevelopmentAIRuntime;
+  realtime: DevelopmentAIRuntime;
+  final: DevelopmentAIRuntime;
+  events: DevelopmentStudioEvent[];
+  models: ModelInfo[];
 }
 
 export interface EffortInfo {
@@ -1500,7 +1565,92 @@ export interface MemoryView {
 }
 
 // SettingsTab is the top-level navigation item in the Settings Centre modal.
-export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "remote" | "skills" | "subagents" | "plugins" | "memory" | "hooks" | "diagnostics" | "shortcuts" | "permissions" | "sandbox" | "network" | "appearance" | "storage" | "updates";
+export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "remote" | "github" | "skills" | "subagents" | "plugins" | "memory" | "hooks" | "diagnostics" | "shortcuts" | "permissions" | "sandbox" | "network" | "appearance" | "storage" | "updates";
+
+export interface ProjectAnalysisFile {
+  path: string;
+  language?: string;
+  bytes: number;
+  lines: number;
+  hash: string;
+  sensitive?: boolean;
+}
+export interface ProjectAnalysisSymbol { name: string; kind: string; file: string; line: number; signature?: string; }
+export interface ProjectAnalysisDependency { from: string; to: string; kind: string; source: string; line: number; }
+export interface ProjectAnalysisEvidence { id: string; kind: string; title: string; sourceFile: string; line: number; confidence: number; detail?: string; }
+export interface ProjectAnalysisParseSummary {
+  stage: string;
+  parsedFiles: number;
+  syntaxNodes: number;
+  unsupportedFiles?: string[];
+  blockedFiles?: string[];
+  staleFiles?: string[];
+  diagnosticCount: number;
+  parserLanguages?: string[];
+}
+export interface ProjectAnalysisResolutionSummary {
+  stage: string;
+  resolvedSymbols: number;
+  localPackages: number;
+  localReferences: number;
+  importedPackages: number;
+  externalDependencies: number;
+  diagnostics: number;
+  supportedLanguages?: string[];
+}
+export interface ProjectAnalysisCallGraphSummary {
+  stage: string;
+  functions: number;
+  callEdges: number;
+  supportedLanguages?: string[];
+}
+export interface ProjectAnalysisDataFlowSummary {
+  stage: string;
+  functions: number;
+  definitions: number;
+  uses: number;
+  flowEdges: number;
+  diagnostics: number;
+  supportedLanguages?: string[];
+}
+export interface ProjectAnalysisResult {
+  projectId: string;
+  root: string;
+  name: string;
+  analyzedAt: string;
+  durationMs: number;
+  files: ProjectAnalysisFile[];
+  symbols: ProjectAnalysisSymbol[];
+  dependencies: ProjectAnalysisDependency[];
+  evidence: ProjectAnalysisEvidence[];
+  languages: string[];
+  frameworks: string[];
+  packageManager?: string;
+  sensitiveFiles: string[];
+  skippedFiles: number;
+  errors: string[];
+  parse?: ProjectAnalysisParseSummary;
+  resolution?: ProjectAnalysisResolutionSummary;
+  callGraph?: ProjectAnalysisCallGraphSummary;
+  dataFlow?: ProjectAnalysisDataFlowSummary;
+}
+export interface ProjectAnalysisJobView {
+  id: string;
+  root: string;
+  state: "queued" | "running" | "completed" | "failed" | "cancelled";
+  phase: string;
+  done: number;
+  total: number;
+  startedAt: string;
+  error?: string;
+  result?: ProjectAnalysisResult;
+}
+
+export interface GitHubConnectionView { configured: boolean; connected: boolean; login?: string; name?: string; avatarUrl?: string; profileUrl?: string; scopes?: string; error?: string; }
+export interface GitHubDeviceFlowStart { deviceCode: string; userCode: string; verificationUri: string; expiresIn: number; interval: number; }
+export interface GitHubDeviceFlowPollResult { status: "pending" | "connected" | "access_denied" | "expired_token"; interval?: number; connection: GitHubConnectionView; }
+export interface GitHubRepositoryView { id: number; owner: string; name: string; fullName: string; description?: string; private: boolean; fork: boolean; language?: string; defaultBranch: string; htmlUrl: string; cloneUrl: string; updatedAt: string; stars: number; }
+export interface GitHubRepositoryPage { repositories: GitHubRepositoryView[]; nextCursor?: string; }
 
 // ── Remote SSH module (mirrors desktop/remote_app.go view structs) ──
 
