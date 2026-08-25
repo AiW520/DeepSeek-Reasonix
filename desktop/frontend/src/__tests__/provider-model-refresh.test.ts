@@ -91,8 +91,9 @@ eq(
     isLikelyChatModel("mimo-v2.5-asr"),
     isLikelyChatModel("mimo-v2.5-tts"),
     isLikelyChatModel("text-embedding-3-small"),
+    isLikelyChatModel("gpt-4o-realtime-preview"),
   ],
-  [true, false, false, false],
+  [true, false, false, false, false],
   "matches backend non-chat model heuristic",
 );
 

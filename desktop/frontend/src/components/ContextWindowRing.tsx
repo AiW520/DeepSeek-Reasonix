@@ -4,12 +4,9 @@ import { contextWindowPercentages } from "../lib/contextWindow";
 import { useI18n } from "../lib/i18n";
 import { formatMoneyLocalized } from "../lib/money";
 import { appendRateBand, rateBandLabel } from "../lib/costRateBand";
+import { contextWindowStatus, formatCacheHitRate } from "../lib/contextMetrics";
 import type { BalanceInfo, ContextInfo, ContextPanelInfo } from "../lib/types";
 import { AnchoredPopover } from "./AnchoredPopover";
-import {
-  contextWindowStatus,
-  formatCacheHitRate,
-} from "./ContextPanel";
 
 interface ContextWindowRingProps {
   enabled?: boolean;

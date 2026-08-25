@@ -1,6 +1,7 @@
 // Run: tsx src/__tests__/context-panel-breakdown.test.ts
 
-import { cacheHitTone, contextBreakdown, contextCostDisplay, contextSessionCache, contextSourceRows, contextUsageRefreshKey, contextWindowStatus, formatCacheHitRate, formatMetricTokens, formatSharePercent, liveTurnUsageBreakdown } from "../components/ContextPanel";
+import { cacheHitTone, cacheOptimizationInsight, contextBreakdown, contextCostDisplay, contextSessionCache, contextSourceRows, contextUsageRefreshKey, formatMetricTokens, formatSharePercent, liveTurnUsageBreakdown } from "../components/ContextPanel";
+import { contextWindowStatus, formatCacheHitRate } from "../lib/contextMetrics";
 import { contextWindowPercentages } from "../lib/contextWindow";
 import { currencySymbol, formatMoney, formatMoneyLocalized } from "../lib/money";
 import type { WireUsage } from "../lib/types";
@@ -296,6 +297,11 @@ eq(cacheHitTone(8700, 1300), "good", "healthy cache hit rate uses positive tone"
 eq(cacheHitTone(6000, 4000), "notice", "mid cache hit rate uses notice tone");
 eq(cacheHitTone(5999, 4001), "warn", "low cache hit rate uses warning tone");
 eq(cacheHitTone(0, 0), undefined, "missing cache data stays uncolored");
+eq(cacheOptimizationInsight(0, 0).status, "unreported", "cache optimizer distinguishes missing provider telemetry from a real zero hit rate");
+eq(cacheOptimizationInsight(8_000, 2_000).status, "good", "cache optimizer marks eighty percent reuse as healthy");
+eq(cacheOptimizationInsight(6_000, 4_000).status, "notice", "cache optimizer marks mid-range reuse as improvable");
+eq(cacheOptimizationInsight(5_999, 4_001).status, "warn", "cache optimizer flags low prefix reuse");
+eq(cacheOptimizationInsight(8_700, 1_300).reusedTokens, 8_700, "cache optimizer reports reused input tokens without counting misses");
 
 console.log("\ncontext panel usage refresh key");
 

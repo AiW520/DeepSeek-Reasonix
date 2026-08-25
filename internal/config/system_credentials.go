@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/zalando/go-keyring"
 )
@@ -14,11 +15,15 @@ var ErrSystemCredentialNotFound = errors.New("system credential not found")
 
 const systemCredentialService = "reasonix"
 
+const providerCredentialAccountPrefix = "provider/"
+
 var (
 	systemKeyringSet    = keyring.Set
 	systemKeyringGet    = keyring.Get
 	systemKeyringDelete = keyring.Delete
 )
+
+var providerCredentialGeneration atomic.Uint64
 
 func SetSystemCredential(account, value string) error {
 	account = strings.TrimSpace(account)
@@ -61,4 +66,40 @@ func DeleteSystemCredential(account string) error {
 		return fmt.Errorf("delete credential from the operating system keyring: %w", err)
 	}
 	return nil
+}
+
+func SetProviderCredential(apiKeyEnv, value string) error {
+	apiKeyEnv = strings.TrimSpace(apiKeyEnv)
+	if apiKeyEnv == "" {
+		return fmt.Errorf("provider credential account is required")
+	}
+	if err := SetSystemCredential(providerCredentialAccountPrefix+apiKeyEnv, value); err != nil {
+		return err
+	}
+	providerCredentialGeneration.Add(1)
+	return nil
+}
+
+func GetProviderCredential(apiKeyEnv string) (string, error) {
+	apiKeyEnv = strings.TrimSpace(apiKeyEnv)
+	if apiKeyEnv == "" {
+		return "", ErrSystemCredentialNotFound
+	}
+	return GetSystemCredential(providerCredentialAccountPrefix + apiKeyEnv)
+}
+
+func DeleteProviderCredential(apiKeyEnv string) error {
+	apiKeyEnv = strings.TrimSpace(apiKeyEnv)
+	if apiKeyEnv == "" {
+		return nil
+	}
+	if err := DeleteSystemCredential(providerCredentialAccountPrefix + apiKeyEnv); err != nil {
+		return err
+	}
+	providerCredentialGeneration.Add(1)
+	return nil
+}
+
+func ProviderCredentialGeneration() uint64 {
+	return providerCredentialGeneration.Load()
 }

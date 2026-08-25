@@ -498,6 +498,37 @@ func TestFetchProviderModelsUsesSavedCredentialBeforeEnvironment(t *testing.T) {
 	}
 }
 
+func TestTestProviderConnectionClassifiesWorkingAndUpstreamFailures(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if _, err := config.SetCredential("TEST_PROVIDER_CHAT_KEY", "test-key"); err != nil {
+		t.Fatal(err)
+	}
+	working := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chat/completions" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"OK\"}}]}\n\ndata: [DONE]\n\n"))
+	}))
+	defer working.Close()
+
+	view := ProviderView{Name: "custom", Kind: "openai", BaseURL: working.URL + "/v1", Models: []string{"chat-model"}, Default: "chat-model", APIKeyEnv: "TEST_PROVIDER_CHAT_KEY"}
+	if got := NewApp().TestProviderConnection(view); got.Status != "ok" || got.Code != "connected" {
+		t.Fatalf("working diagnostic = %+v", got)
+	}
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"message":"upstream service unavailable","code":"bad_response_error"}}`))
+	}))
+	defer upstream.Close()
+	view.BaseURL = upstream.URL + "/v1"
+	if got := NewApp().TestProviderConnection(view); got.Code != "upstream_unavailable" {
+		t.Fatalf("upstream diagnostic = %+v", got)
+	}
+}
+
 func TestFetchAllProviderModelsOmitsFailuresWithoutJSONNulls(t *testing.T) {
 	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

@@ -6,7 +6,7 @@ import { app, openExternal } from "../lib/bridge";
 import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from "../lib/i18n";
 import { apiKeyEnvFromProviderName, createLatestRequestGate, inferredVisionModels, mergedFetchedProviderModels, mergeProviderModelContextWindows, providerApiKeyEnvForSave, providerDefaultModel, providerIsConfigured, providerModelCandidates, providerModelContextWindowDrafts, providerModelContextWindowIsSmall, providerRequiresKey } from "../lib/providerModels";
 import { cachedFetchProviderModels, invalidateProviderCacheByAPIKeyEnv, shouldSkipAutoRefresh } from "../lib/providerModelCache";
-import { providerBaseURLForSave, providerRequestURLFromConfig, trimmedBaseURL } from "../lib/providerEndpoint";
+import { providerAddressInputFromConfig, providerAddressModeFromConfig, providerBaseURLFromInput, providerPrimaryModelsURL, providerRequestURLFromInput, trimmedBaseURL, type ProviderAddressMode } from "../lib/providerEndpoint";
 import { opencodeGoPresetDescriptionKeys } from "../lib/providerPresetDescriptions";
 import { useUpdater } from "../lib/useUpdater";
 import {
@@ -63,7 +63,7 @@ import {
   shortcutDefinitions,
   type ShortcutAction,
 } from "../lib/keyboardShortcuts";
-import type { BotAccessView, BotAllowlistView, BotConnectionDiagnostic, BotConnectionView, BotInstallStartResult, BotRouteView, BotSettingsView, HookConfigView, HooksSettingsView, NetworkView, ProviderModelCatalogUpdate, ProviderPresetView, ProviderView, SettingsTab, SettingsView } from "../lib/types";
+import type { BotAccessView, BotAllowlistView, BotConnectionDiagnostic, BotConnectionView, BotInstallStartResult, BotRouteView, BotSettingsView, HookConfigView, HooksSettingsView, NetworkView, ProviderConnectionDiagnostic, ProviderModelCatalogUpdate, ProviderPresetView, ProviderView, SettingsTab, SettingsView } from "../lib/types";
 import { AppearanceOverview } from "./AppearanceOverview";
 import { applyConfiguredBaseAppearance, setBaseAppearance } from "../lib/themePack";
 import { InlineConfirmButton } from "./InlineConfirmButton";
@@ -6210,12 +6210,8 @@ export function ProviderEditor({
   const t = useT();
   const [name, setName] = useState(initial?.name ?? "");
   const [kind, setKind] = useState(initial?.kind ?? "openai");
-  const [requestUrl, setRequestUrl] = useState(() => providerRequestURLFromConfig(
-    initial?.kind ?? "openai",
-    initial?.baseUrl ?? "",
-    initial?.requestUrl ?? "",
-    initial?.chatUrl ?? "",
-  ));
+  const [addressMode, setAddressMode] = useState<ProviderAddressMode>(() => providerAddressModeFromConfig(initial));
+  const [providerAddress, setProviderAddress] = useState(() => providerAddressInputFromConfig(initial));
   const providerUrlInputId = useId();
   const providerUrlHelpId = useId();
   const [models, setModels] = useState((initial?.models ?? []).join(", "));
@@ -6245,6 +6241,8 @@ export function ProviderEditor({
   const [fetchingModels, setFetchingModels] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<string | null>(null);
   const [fetchFallback, setFetchFallback] = useState<string | null>(null);
+  const [connectionDiagnostic, setConnectionDiagnostic] = useState<ProviderConnectionDiagnostic | null>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const builtIn = initial?.builtIn ?? false;
   const isNewCustomProvider = !initial;
@@ -6253,10 +6251,11 @@ export function ProviderEditor({
     return choices.length > 0 ? choices : ["openai"];
   }, [kind, kinds]);
   const effectiveKind = providerEditorEffectiveKind(isNewCustomProvider, kind, providerKindChoices);
-  const effectiveRequestUrl = requestUrl.trim();
-  const effectiveBaseUrl = providerBaseURLForSave(initial, effectiveKind, effectiveRequestUrl);
+  const effectiveRequestUrl = providerRequestURLFromInput(effectiveKind, providerAddress, addressMode);
+  const effectiveBaseUrl = providerBaseURLFromInput(initial, effectiveKind, providerAddress, addressMode);
   const effectiveLegacyChatUrl = effectiveKind.toLowerCase() === "openai" ? effectiveRequestUrl : initial?.chatUrl ?? "";
   const effectiveModelsUrl = modelsUrl.trim();
+  const effectivePrimaryModelsUrl = providerPrimaryModelsURL(effectiveBaseUrl, effectiveModelsUrl);
   const initialEffectiveBaseUrl = initial ? trimmedBaseURL(initial.baseUrl) : "";
   const retainedVisionCapability = initial &&
     effectiveKind.trim().toLowerCase() === initial.kind.trim().toLowerCase() &&
@@ -6368,6 +6367,38 @@ export function ProviderEditor({
       setFetchFallback(providerModelFetchFallbackMessage(e, t));
     } finally {
       setFetchingModels(false);
+    }
+  };
+
+  const testConnection = async () => {
+    if (extraBodyInvalid || !effectiveRequestUrl || modelNames.length === 0) return;
+    setTestingConnection(true);
+    setConnectionDiagnostic(null);
+    setFetchFallback(null);
+    try {
+      const effectiveApiKeyEnv = providerApiKeyEnvForSave(name, apiKeyEnv, keyDraft);
+      if (keyDraft.trim()) {
+        await app.SaveProviderKey(effectiveApiKeyEnv, keyDraft.trim());
+        invalidateProviderCacheByAPIKeyEnv(effectiveApiKeyEnv);
+      }
+      const result = await app.TestProviderConnection({
+        name: name.trim() || t("settings.newProviderDraftName"), builtIn: initial?.builtIn ?? false,
+        added: initial?.added ?? true, kind: effectiveKind, baseUrl: effectiveBaseUrl,
+        chatUrl: effectiveLegacyChatUrl, requestUrl: effectiveRequestUrl, models: modelNames,
+        visionModels: visionModelNames, visionModelsConfigured, default: modelNames[0] ?? "",
+        apiKeyEnv: effectiveApiKeyEnv, headers: effectiveHeaders, extraBody: effectiveExtraBody,
+        authHeader, modelsUrl: effectiveModelsUrl, keySet: Boolean(keyDraft.trim()) || (initial?.keySet ?? false),
+        balanceUrl: balanceUrl.trim(), contextWindow: Number(ctx) || 0, reasoningProtocol, thinking,
+        webSearch: effectiveServerWebSearchCapability && webSearch, serverWebSearchCapability: effectiveServerWebSearchCapability,
+        supportedEfforts: cleanedSupportedEfforts, defaultEffort: cleanDefaultEffort,
+        modelOverrides: mergeProviderModelContextWindows(initial?.modelOverrides, modelNames, modelContextWindows),
+      });
+      setConnectionDiagnostic(result);
+      if (keyDraft.trim() && result.status === "ok") setKeyDraft("");
+    } catch (error) {
+      setConnectionDiagnostic({ status: "error", code: "request_failed", message: String((error as Error)?.message ?? error), model: modelNames[0] ?? "" });
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -6616,17 +6647,41 @@ export function ProviderEditor({
       <label className="set-label" htmlFor={providerUrlInputId}>
         {t("settings.providerBaseUrlLabel")}
       </label>
+      <div className="provider-address-mode" role="group" aria-label={t("settings.providerAddressMode")}>
+        <button
+          type="button"
+          className={`provider-address-mode__option${addressMode === "base" ? " provider-address-mode__option--active" : ""}`}
+          aria-pressed={addressMode === "base"}
+          onClick={() => setAddressMode("base")}
+        >
+          {t("settings.providerAddressModeBase")}
+        </button>
+        <button
+          type="button"
+          className={`provider-address-mode__option${addressMode === "endpoint" ? " provider-address-mode__option--active" : ""}`}
+          aria-pressed={addressMode === "endpoint"}
+          onClick={() => setAddressMode("endpoint")}
+        >
+          {t("settings.providerAddressModeEndpoint")}
+        </button>
+      </div>
       <input
         id={providerUrlInputId}
         className="mem-input provider-url-input"
         aria-describedby={providerUrlHelpId}
-        placeholder={t("settings.providerChatUrlPlaceholder")}
-        value={requestUrl}
-        onChange={(e) => setRequestUrl(e.target.value)}
+        placeholder={addressMode === "base" ? t("settings.providerBaseUrlPlaceholder") : t("settings.providerChatUrlPlaceholder")}
+        value={providerAddress}
+        onChange={(e) => setProviderAddress(e.target.value)}
       />
       <div id={providerUrlHelpId} className="mem-hint">
-        {t("settings.providerRequestUrlHint")}
+        {addressMode === "base" ? t("settings.providerBaseUrlHint") : t("settings.providerRequestUrlHint")}
       </div>
+      {(effectiveRequestUrl || effectivePrimaryModelsUrl) && (
+        <dl className="provider-endpoint-preview">
+          <div><dt>{t("settings.providerResolvedChatUrl")}</dt><dd>{effectiveRequestUrl || "-"}</dd></div>
+          <div><dt>{t("settings.providerResolvedModelsUrl")}</dt><dd>{effectivePrimaryModelsUrl || "-"}</dd></div>
+        </dl>
+      )}
       {!initial && (
         <>
           <label className="set-label">{t("settings.providerKey")}</label>
@@ -6666,6 +6721,22 @@ export function ProviderEditor({
         </button>
         <span>{t("settings.testFetchModelsHint")}</span>
       </div>
+      <div className="provider-model-fetch-row">
+        <button
+          type="button"
+          className="btn btn--small"
+          disabled={busy || fetchingModels || testingConnection || !canFetch || modelNames.length === 0 || extraBodyInvalid}
+          onClick={() => void testConnection()}
+        >
+          {testingConnection ? t("settings.testingProviderConnection") : t("settings.testProviderConnection")}
+        </button>
+        <span>{t("settings.testProviderConnectionHint")}</span>
+      </div>
+      {connectionDiagnostic && (
+        <div className={`provider-fetch-status provider-fetch-status--${connectionDiagnostic.status === "ok" ? "ok" : "warn"}`}>
+          {connectionDiagnostic.status === "ok" ? t("settings.providerConnectionSucceeded", { model: connectionDiagnostic.model }) : t("settings.providerConnectionFailed", { code: connectionDiagnostic.code, message: connectionDiagnostic.message })}
+        </div>
+      )}
       {fetchStatus && <div className="provider-fetch-status provider-fetch-status--ok">{fetchStatus}</div>}
       {fetchFallback && <div className="provider-fetch-status provider-fetch-status--warn">{fetchFallback}</div>}
       <label className="set-label">{t("settings.manualModels")}</label>

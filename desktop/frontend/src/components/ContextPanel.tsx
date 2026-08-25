@@ -7,6 +7,7 @@ import { contextWindowPercentages } from "../lib/contextWindow";
 import { useI18n, type Locale, type Translator } from "../lib/i18n";
 import { formatMoneyLocalized } from "../lib/money";
 import { formatTokens, formatOptionalTokens } from "../lib/format";
+import { contextWindowStatus, formatCacheHitRate } from "../lib/contextMetrics";
 import { appendRateBand, normalizeRateBand, rateBandLabel, type DisplayRateBand } from "../lib/costRateBand";
 import type { DictKey } from "../locales/en";
 import type { BalanceInfo, ContextInfo, ContextPanelInfo, UsageSourceStats, WireUsage } from "../lib/types";
@@ -67,12 +68,6 @@ function fmtUsageCacheRate(usage?: WireUsage): string {
   return `${((usage.cacheHitTokens / denom) * 100).toFixed(2)}%`;
 }
 
-export function formatCacheHitRate(hitTokens: number, missTokens: number): string {
-  const denom = hitTokens + missTokens;
-  if (denom <= 0) return "-";
-  return `${((hitTokens / denom) * 100).toFixed(2)}%`;
-}
-
 type MetricTone = "accent" | "good" | "notice" | "warn";
 type UsageAnalysisView = "source" | "type";
 type ContextUsageRefreshFields = Pick<
@@ -101,16 +96,57 @@ export function cacheHitTone(hitTokens: number, missTokens: number): MetricTone 
   return "warn";
 }
 
+export type CacheOptimizationStatus = "unreported" | "good" | "notice" | "warn";
+
+export interface CacheOptimizationInsight {
+  status: CacheOptimizationStatus;
+  rate: number | null;
+  reusedTokens: number;
+  suggestionKeys: DictKey[];
+}
+
+export function cacheOptimizationInsight(hitTokens: number, missTokens: number): CacheOptimizationInsight {
+  const hit = Math.max(0, hitTokens || 0);
+  const miss = Math.max(0, missTokens || 0);
+  const total = hit + miss;
+  if (total === 0) {
+    return {
+      status: "unreported",
+      rate: null,
+      reusedTokens: 0,
+      suggestionKeys: ["context.cacheOptimizeUnreportedAction", "context.cacheOptimizeStablePrefixAction"],
+    };
+  }
+  const rate = hit / total;
+  if (rate >= 0.8) {
+    return {
+      status: "good",
+      rate,
+      reusedTokens: hit,
+      suggestionKeys: ["context.cacheOptimizeHealthyAction", "context.cacheOptimizeKeepStableAction"],
+    };
+  }
+  if (rate >= 0.6) {
+    return {
+      status: "notice",
+      rate,
+      reusedTokens: hit,
+      suggestionKeys: ["context.cacheOptimizeDynamicTailAction", "context.cacheOptimizeStableToolsAction"],
+    };
+  }
+  return {
+    status: "warn",
+    rate,
+    reusedTokens: hit,
+    suggestionKeys: ["context.cacheOptimizeStablePrefixAction", "context.cacheOptimizeDynamicTailAction", "context.cacheOptimizeStableToolsAction"],
+  };
+}
+
 export function formatSharePercent(value: number, total: number): string {
   if (total <= 0 || value <= 0) return "-";
   const pct = (value / total) * 100;
   if (pct > 0 && pct < 1) return "<1%";
   return `${Math.round(pct)}%`;
-}
-
-interface ContextWindowStatus {
-  tone: "good" | "notice" | "warn";
-  key: DictKey;
 }
 
 export function contextCostDisplay({
@@ -307,15 +343,6 @@ export function contextBreakdown(
     reasoningPct,
     otherPct,
   };
-}
-
-export function contextWindowStatus(rawUsagePct: number, compactPct: number): ContextWindowStatus {
-  if (rawUsagePct > 100) return { tone: "warn", key: "context.windowStatusOverLimit" };
-  const usagePct = Math.min(100, Math.max(0, rawUsagePct));
-  if (usagePct >= 90) return { tone: "warn", key: "context.windowStatusNearLimit" };
-  if (compactPct > 0 && usagePct >= compactPct) return { tone: "warn", key: "context.windowStatusPastCompact" };
-  if (compactPct > 0 && usagePct >= Math.max(0, compactPct - 10)) return { tone: "notice", key: "context.windowStatusWatch" };
-  return { tone: "good", key: "context.windowStatusHealthy" };
 }
 
 const SOURCE_ORDER = ["executor", "planner", "subagent", "compaction", "classifier", "title"];
@@ -532,6 +559,10 @@ export function ContextPanel({
   const sessionRateBandBadge = sessionRateBand
     ? { label: rateBandLabel(sessionRateBand, t) ?? sessionRateBand, tone: sessionRateBand, title: sessionRateBandTitle }
     : undefined;
+  const cacheOptimization = cacheOptimizationInsight(sessionCacheHit, sessionCacheMiss);
+  const cacheOptimizationRate = cacheOptimization.rate == null
+    ? t("context.cacheNotReported")
+    : formatCacheHitRate(sessionCacheHit, sessionCacheMiss);
   const totalTokensTitle = totalTokensMetric.exact === "-" ? "-" : t("context.tokensValue", { value: totalTokensMetric.exact });
   const usedLabel = formatTokens(usedTokens);
   const windowLabel = formatTokens(windowTokens);
@@ -647,6 +678,23 @@ export function ContextPanel({
                 <MiniStat label={t("context.sessionTokensShort")} value={markEstimated(totalTokensMetric.display, sessionEstimated)} title={totalTokensTitle} wide />
               </div>
             </div>
+          </section>
+          <section className={`context-panel__cache-optimizer context-panel__cache-optimizer--${cacheOptimization.status}`} aria-label={t("context.cacheOptimizeTitle")}>
+            <div className="context-panel__cache-optimizer-head">
+              <div>
+                <span>{t("context.cacheOptimizeTitle")}</span>
+                <strong>{t(`context.cacheOptimizeStatus.${cacheOptimization.status}` as DictKey)}</strong>
+              </div>
+              <em>{cacheOptimizationRate}</em>
+            </div>
+            <p>
+              {cacheOptimization.status === "unreported"
+                ? t("context.cacheOptimizeUnreportedSummary")
+                : t("context.cacheOptimizeReusedSummary", { tokens: formatTokens(cacheOptimization.reusedTokens) })}
+            </p>
+            <ul>
+              {cacheOptimization.suggestionKeys.map((key) => <li key={key}>{t(key)}</li>)}
+            </ul>
           </section>
           <section className="context-panel__creation-grid" aria-label={t("context.overview")}>
             <MetricCard label={t("status.cacheLabel")} value={fmtUsageCacheRate(usage)} tone="accent" />

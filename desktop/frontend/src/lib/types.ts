@@ -1957,6 +1957,13 @@ export interface ProviderView {
   modelCatalogFingerprint?: string; // opaque compare-and-apply token for background model discovery
 }
 
+export interface ProviderConnectionDiagnostic {
+  status: "ok" | "error" | string;
+  code: "connected" | "model_required" | "credential_missing" | "authentication_failed" | "endpoint_mismatch" | "upstream_unavailable" | "network_failed" | "empty_response" | "request_failed" | string;
+  message: string;
+  model: string;
+}
+
 export interface ProviderModelCatalogUpdate {
   name: string;
   expectedFingerprint: string;

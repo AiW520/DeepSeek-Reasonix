@@ -154,7 +154,7 @@ function fnv1a32(s: string): string {
 export function isLikelyChatModel(model: string): boolean {
   const lower = model.trim().toLowerCase();
   if (!lower) return false;
-  for (const term of ["text-embedding", "text-to-speech", "speech-to-text"]) {
+  for (const term of ["text-embedding", "text-to-speech", "speech-to-text", "audio-preview", "realtime-preview"]) {
     if (lower.includes(term)) return false;
   }
   const nonChatTokens = new Set([
@@ -167,6 +167,7 @@ export function isLikelyChatModel(model: string): boolean {
     "rerank",
     "dall",
     "transcription",
+    "realtime",
   ]);
   return !lower.split(/[-_./:]+/).some((token) => nonChatTokens.has(token));
 }

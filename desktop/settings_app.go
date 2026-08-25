@@ -78,6 +78,13 @@ type ProviderView struct {
 	ModelCatalogFingerprint string `json:"modelCatalogFingerprint"`
 }
 
+type ProviderConnectionDiagnostic struct {
+	Status  string `json:"status"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Model   string `json:"model"`
+}
+
 type ProviderModelCatalogUpdate struct {
 	Name                string   `json:"name"`
 	ExpectedFingerprint string   `json:"expectedFingerprint"`
@@ -404,7 +411,7 @@ func nonNilAnyMap(m map[string]any) map[string]any {
 }
 
 func providerCredentialsRevision() string {
-	return config.CredentialStoreRevision()
+	return fmt.Sprintf("%s:keyring:%d", config.CredentialStoreRevision(), config.ProviderCredentialGeneration())
 }
 
 var providerStateFingerprintKey = func() []byte {
@@ -1755,8 +1762,29 @@ func (a *App) activeWorkspaceRoot() string {
 func (a *App) saveProviderCredential(apiKeyEnv, value string) (string, error) {
 	apiKeyEnv = strings.TrimSpace(apiKeyEnv)
 	value = strings.TrimSpace(value)
-	if err := upsertDotEnv(apiKeyEnv, value); err != nil {
-		return "", err
+	if apiKeyEnv == "" {
+		return "", fmt.Errorf("provider credential name is required")
+	}
+	if value == "" {
+		return "", fmt.Errorf("provider credential value is required")
+	}
+	if !config.ProviderCredentialsUseSystemVault() {
+		if err := upsertDotEnv(apiKeyEnv, value); err != nil {
+			return "", err
+		}
+		return providerCredentialSourceNotice(apiKeyEnv, value), nil
+	}
+	if err := config.SetProviderCredential(apiKeyEnv, value); err != nil {
+		// Keep legacy file-store installations functional when the OS vault is
+		// unavailable, but never hide the reason from the user.
+		if fallbackErr := upsertDotEnv(apiKeyEnv, value); fallbackErr != nil {
+			return "", fmt.Errorf("store provider credential securely: %w (file fallback failed: %v)", err, fallbackErr)
+		}
+		return "The operating-system credential vault was unavailable, so Reasonix used its legacy credential file.", nil
+	}
+	// A successful secure save also removes any legacy plaintext copy.
+	if err := removeDotEnv(apiKeyEnv); err != nil {
+		return "", fmt.Errorf("remove legacy provider credential after secure save: %w", err)
 	}
 	return providerCredentialSourceNotice(apiKeyEnv, value), nil
 }
@@ -2874,6 +2902,85 @@ func (a *App) FetchProviderModels(p ProviderView) ([]string, error) {
 	return nonNil(chatProviderModels(models)), nil
 }
 
+func providerEntryFromView(p ProviderView) config.ProviderEntry {
+	models := nonNil(p.Models)
+	model := strings.TrimSpace(p.Default)
+	if model == "" && len(models) > 0 {
+		model = strings.TrimSpace(models[0])
+	}
+	return config.ProviderEntry{
+		Name: p.Name, Kind: p.Kind, BaseURL: p.BaseURL, ChatURL: strings.TrimSpace(p.ChatURL),
+		RequestURL: strings.TrimSpace(p.RequestURL), Model: model, Models: models,
+		ModelsURL: strings.TrimSpace(p.ModelsURL), APIKeyEnv: p.APIKeyEnv, Headers: p.Headers,
+		ExtraBody: p.ExtraBody, AuthHeader: p.AuthHeader, ContextWindow: p.ContextWindow,
+		Thinking: p.Thinking, ReasoningProtocol: p.ReasoningProtocol,
+	}
+}
+
+func classifyProviderConnectionError(err error, model string) ProviderConnectionDiagnostic {
+	message := strings.TrimSpace(fmt.Sprint(err))
+	lower := strings.ToLower(message)
+	diagnostic := ProviderConnectionDiagnostic{Status: "error", Code: "request_failed", Message: message, Model: model}
+	switch {
+	case strings.Contains(lower, "upstream"), strings.Contains(lower, "上游"), strings.Contains(lower, "no_available_channel"), strings.Contains(lower, "cannot be routed"), strings.Contains(lower, "bad_response_error"):
+		diagnostic.Code = "upstream_unavailable"
+	case strings.Contains(lower, "http 403"), strings.Contains(lower, "status 403"):
+		// Provider adapters intentionally redact upstream response bodies from
+		// AuthError. Treat forbidden separately from invalid-token 401 so a
+		// gateway's upstream permission/route failure is actionable in the UI.
+		diagnostic.Code = "upstream_unavailable"
+	case strings.Contains(lower, "status 401"), strings.Contains(lower, "invalid token"), strings.Contains(lower, "unauthorized"):
+		diagnostic.Code = "authentication_failed"
+	case strings.Contains(lower, "status 404"), strings.Contains(lower, "status 405"), strings.Contains(lower, "invalid url"), strings.Contains(lower, "not found"):
+		diagnostic.Code = "endpoint_mismatch"
+	case strings.Contains(lower, "timeout"), strings.Contains(lower, "deadline"), strings.Contains(lower, "connection"), strings.Contains(lower, "network"):
+		diagnostic.Code = "network_failed"
+	}
+	return diagnostic
+}
+
+// TestProviderConnection makes a minimal real completion so model discovery
+// success cannot be mistaken for a working upstream model route.
+func (a *App) TestProviderConnection(p ProviderView) ProviderConnectionDiagnostic {
+	e := providerEntryFromView(p)
+	model := strings.TrimSpace(e.Model)
+	if model == "" {
+		return ProviderConnectionDiagnostic{Status: "error", Code: "model_required", Message: "select at least one chat model", Model: model}
+	}
+	e.ResolveAPIKeyForRoot(a.activeWorkspaceRoot())
+	if e.RequiresAPIKey() && e.APIKey() == "" {
+		return ProviderConnectionDiagnostic{Status: "error", Code: "credential_missing", Message: "provider API key is not configured", Model: model}
+	}
+	prov, err := boot.NewProvider(&e)
+	if err != nil {
+		return classifyProviderConnectionError(err, model)
+	}
+	ctx, cancel := context.WithTimeout(a.reqCtx(), 45*time.Second)
+	defer cancel()
+	stream, err := prov.Stream(ctx, provider.Request{
+		Messages:  []provider.Message{{Role: provider.RoleUser, Content: "Reply with OK."}},
+		MaxTokens: 8,
+	})
+	if err != nil {
+		return classifyProviderConnectionError(err, model)
+	}
+	hadOutput := false
+	for chunk := range stream {
+		switch chunk.Type {
+		case provider.ChunkText, provider.ChunkReasoning:
+			hadOutput = hadOutput || chunk.Text != ""
+		case provider.ChunkError:
+			return classifyProviderConnectionError(chunk.Err, model)
+		case provider.ChunkDone:
+			return ProviderConnectionDiagnostic{Status: "ok", Code: "connected", Message: "chat completion succeeded", Model: model}
+		}
+	}
+	if hadOutput {
+		return ProviderConnectionDiagnostic{Status: "ok", Code: "connected", Message: "chat completion succeeded", Model: model}
+	}
+	return ProviderConnectionDiagnostic{Status: "error", Code: "empty_response", Message: "provider closed the response without output", Model: model}
+}
+
 // FetchAllProviderModels fetches model lists for all providers in a single
 // batch. Models are fetched concurrently (up to 4 parallel requests) and
 // returned as a map keyed by provider name. Errors for individual providers
@@ -3027,6 +3134,11 @@ func (a *App) ClearProviderKey(apiKeyEnv string) error {
 	}
 	if err := a.ensureActiveTabRebuildAllowed("provider key"); err != nil {
 		return err
+	}
+	if config.ProviderCredentialsUseSystemVault() {
+		if err := config.DeleteProviderCredential(apiKeyEnv); err != nil {
+			return err
+		}
 	}
 	if err := removeDotEnv(apiKeyEnv); err != nil {
 		return err

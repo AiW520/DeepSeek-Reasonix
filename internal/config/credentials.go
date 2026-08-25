@@ -31,6 +31,7 @@ const (
 	CredentialSourceCredentials = "credentials"
 	CredentialSourceHomeEnv     = "home_env"
 	CredentialSourceLegacy      = "legacy_credentials"
+	CredentialSourceKeyring     = "keyring"
 )
 
 type CredentialSource struct {
@@ -141,6 +142,13 @@ func credentialsStoreMode() string {
 		_, _ = decodeTOMLFile(path, &partial)
 	}
 	return normalizeCredentialsStore(partial.CredentialsStore)
+}
+
+// ProviderCredentialsUseSystemVault reports whether desktop provider secrets
+// should use the OS credential vault. Explicit file mode remains available for
+// tests, headless systems, and legacy deployments.
+func ProviderCredentialsUseSystemVault() bool {
+	return credentialsStoreMode() != CredentialsStoreFile
 }
 
 func credentialEnvNamesForRoot(root string) []string {
@@ -550,6 +558,8 @@ func credentialSourceLabel(source CredentialSource) string {
 		return "legacy Reasonix credentials"
 	case CredentialSourceEnvironment:
 		return "environment variable"
+	case CredentialSourceKeyring:
+		return "operating-system credential vault"
 	default:
 		return ""
 	}
@@ -606,6 +616,11 @@ func resolveCredentialForRootGlobalFirst(root, key string) CredentialResolution 
 }
 
 func storedCredentialValue(key string) (string, CredentialSource, bool) {
+	if ProviderCredentialsUseSystemVault() {
+		if value, err := GetProviderCredential(key); err == nil && value != "" {
+			return value, CredentialSource{Kind: CredentialSourceKeyring, Label: "Operating-system credential vault"}, true
+		}
+	}
 	if p := UserCredentialsPath(); p != "" {
 		if value, ok := envFileValue(p, key); ok && value != "" {
 			return value, CredentialSource{Kind: CredentialSourceCredentials, Path: p, Label: "Reasonix credentials (.env)"}, true

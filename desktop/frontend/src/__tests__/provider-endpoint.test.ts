@@ -1,7 +1,12 @@
 import {
+  providerAddressInputFromConfig,
+  providerAddressModeFromConfig,
   providerBaseURLForSave,
+  providerBaseURLFromInput,
   providerBaseURLFromRequestURL,
+  providerPrimaryModelsURL,
   providerRequestURLFromConfig,
+  providerRequestURLFromInput,
 } from "../lib/providerEndpoint";
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -27,5 +32,15 @@ eq(providerBaseURLForSave({ kind: "anthropic", baseUrl: "https://models.example/
 eq(providerBaseURLForSave({ kind: "openai", baseUrl: "https://models.example/v1", requestUrl: "https://gateway.example/old/chat/completions" }, "openai", "https://gateway.example/new/chat/completions"), "https://gateway.example/new", "changing the request URL derives a new base URL");
 eq(providerBaseURLForSave({ kind: "openai", baseUrl: "https://models.example/v1", requestUrl: "https://gateway.example/v1/chat/completions" }, "anthropic", "https://gateway.example/v1/chat/completions"), "https://gateway.example/v1/chat/completions", "changing protocol derives a new base URL under the new protocol");
 eq(providerBaseURLForSave(undefined, "responses", "https://gateway.example/v1/responses"), "https://gateway.example/v1", "new providers derive their base URL from the exact request URL");
+eq(providerAddressModeFromConfig(undefined), "base", "new providers default to the simpler base URL mode");
+eq(providerAddressInputFromConfig({ kind: "openai", baseUrl: "https://proxy.example.com/v1" }), "https://proxy.example.com/v1", "base-only providers keep their base URL in the editor");
+eq(providerAddressModeFromConfig({ kind: "openai", baseUrl: "https://proxy.example.com/v1", requestUrl: "https://proxy.example.com/custom/chat" }), "endpoint", "explicit request URLs select endpoint mode");
+eq(providerRequestURLFromInput("openai", "https://api.tu-zi.com/v1", "base"), "https://api.tu-zi.com/v1/chat/completions", "OpenAI base mode appends the chat completions path");
+eq(providerRequestURLFromInput("responses", "https://api.tu-zi.com/v1", "base"), "https://api.tu-zi.com/v1/responses", "Responses base mode appends the responses path");
+eq(providerRequestURLFromInput("anthropic", "https://proxy.example.com", "base"), "https://proxy.example.com/v1/messages", "Anthropic base mode appends the messages path");
+eq(providerRequestURLFromInput("openai", "https://proxy.example.com/special", "endpoint"), "https://proxy.example.com/special", "endpoint mode preserves custom paths");
+eq(providerBaseURLFromInput(undefined, "openai", "https://api.tu-zi.com/v1/", "base"), "https://api.tu-zi.com/v1", "base mode trims only trailing slashes");
+eq(providerPrimaryModelsURL("https://api.tu-zi.com/v1", ""), "https://api.tu-zi.com/v1/models", "model discovery preview follows the normalized base URL");
+eq(providerPrimaryModelsURL("https://api.tu-zi.com/v1", "https://models.example/catalog"), "https://models.example/catalog", "explicit model discovery endpoints take priority");
 
 if (failed > 0) process.exit(1);

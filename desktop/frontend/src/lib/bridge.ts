@@ -102,6 +102,7 @@ import type {
   PromptHistoryEntry,
   PromptHistoryResult,
   ProviderModelCatalogUpdate,
+  ProviderConnectionDiagnostic,
   ProviderPresetView,
   ProviderView,
   QuestionAnswer,
@@ -540,6 +541,7 @@ export interface AppBindings extends SessionCatalogBindings, ProjectTreeOrganiza
   AddProviderPresetAccess(id: string, key: string): Promise<string>;
   ResetProviderPresetAccess(id: string): Promise<void>;
   FetchProviderModels(p: ProviderView): Promise<string[]>;
+  TestProviderConnection(p: ProviderView): Promise<ProviderConnectionDiagnostic>;
   FetchAllProviderModels(providers: ProviderView[]): Promise<Record<string, string[]>>;
   DeleteProvider(name: string): Promise<void>;
   RemoveProviderAccess(name: string): Promise<void>;
@@ -4732,6 +4734,13 @@ function makeMockApp(): AppBindings {
       if (p.baseUrl.includes("token-plan")) return ["mimo-v2.5", "mimo-v2.5-pro"];
       if (p.baseUrl.includes("xiaomimimo")) return ["mimo-v2.5-pro", "mimo-v2.5"];
       return ["gpt-5", "gpt-5-mini", "qwen3-coder"];
+    },
+    async TestProviderConnection(p: ProviderView) {
+      await delay(350);
+      const model = p.default || p.models[0] || "";
+      return model
+        ? { status: "ok", code: "connected", message: "chat completion succeeded", model }
+        : { status: "error", code: "model_required", message: "select at least one chat model", model: "" };
     },
     async FetchAllProviderModels(providers: ProviderView[]) {
       const out: Record<string, string[]> = {};

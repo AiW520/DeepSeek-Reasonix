@@ -250,13 +250,14 @@ ok(!editorThrew, "provider editor can switch from built-in to custom without cha
 ok(rootEl.textContent?.includes("OpenAI-compatible") === true, "provider editor renders the custom provider fields after the switch");
 ok(rootEl.textContent?.includes("Kimi K3 reasoning (low / high / max)") === true, "custom provider editor exposes the explicit Kimi K3 reasoning protocol");
 const providerUrlInput = rootEl.querySelector<HTMLInputElement>(".provider-url-input");
-ok(rootEl.querySelectorAll('input[type="radio"]').length === 0, "custom provider editor exposes only one API address input");
-ok(providerUrlInput?.value === "", "new custom providers start with an empty exact request address");
+ok(rootEl.querySelectorAll('input[type="radio"]').length === 0, "custom provider address mode uses buttons instead of hidden radio controls");
+ok(rootEl.querySelectorAll('.provider-address-mode__option').length === 2, "custom provider editor distinguishes base URLs from full endpoints");
+ok(providerUrlInput?.value === "", "new custom providers start with an empty base address");
 const providerUrlLabel = Array.from(rootEl.querySelectorAll<HTMLLabelElement>("label")).find(
   (label) => label.htmlFor === providerUrlInput?.id,
 );
 ok(Boolean(providerUrlLabel) && providerUrlInput?.getAttribute("aria-describedby") !== null, "provider URL input has a programmatic label and description");
-ok(rootEl.textContent?.includes("Reasonix uses it unchanged.") === true, "provider URL helper explains exact request behavior");
+ok(rootEl.textContent?.includes("Reasonix appends the protocol path") === true, "provider URL helper explains base URL normalization");
 
 await act(async () => {
   root.render(<div />);
@@ -287,8 +288,8 @@ ok(
   "provider editor honors backend vision capability for endpoints outside the legacy frontend heuristic",
 );
 const customProviderUrlInput = rootEl.querySelector<HTMLInputElement>(".provider-url-input");
-ok(rootEl.querySelectorAll('input[type="radio"]').length === 0, "existing custom providers no longer expose an address mode selector");
-ok(customProviderUrlInput?.value === "https://eu.deepseek.com/v1/chat/completions", "legacy base-only providers display their previously effective request URL");
+ok(rootEl.querySelectorAll('.provider-address-mode__option').length === 2, "existing custom providers expose the same explicit address modes");
+ok(customProviderUrlInput?.value === "https://eu.deepseek.com/v1", "legacy base-only providers remain editable as base URLs");
 
 let migratedProvider: ProviderView | undefined;
 await act(async () => {
