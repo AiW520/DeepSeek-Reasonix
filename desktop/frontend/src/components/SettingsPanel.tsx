@@ -6216,6 +6216,9 @@ export function ProviderEditor({
   const providerUrlHelpId = useId();
   const [models, setModels] = useState((initial?.models ?? []).join(", "));
   const [modelCandidates, setModelCandidates] = useState<string[]>(initial?.models ?? []);
+  const [primaryModel, setPrimaryModel] = useState(initial?.default ?? initial?.models?.[0] ?? "");
+  const [fallbackModels, setFallbackModels] = useState((initial?.fallbackModels ?? []).join(", "));
+  const [firstTokenTimeout, setFirstTokenTimeout] = useState(initial?.firstTokenTimeoutSeconds ? String(initial.firstTokenTimeoutSeconds) : "45");
   const [visionModels, setVisionModels] = useState((initial?.visionModels ?? []).join(", "));
   const [visionModelsConfigured, setVisionModelsConfigured] = useState(
     Boolean(initial?.visionModelsConfigured ?? ((initial?.visionModels ?? []).length > 0)),
@@ -6287,6 +6290,11 @@ export function ProviderEditor({
   const modelNames = useMemo(
     () => parseProviderListInput(models),
     [models],
+  );
+  const effectivePrimaryModel = modelNames.includes(primaryModel) ? primaryModel : (modelNames[0] ?? "");
+  const fallbackModelNames = useMemo(
+    () => parseProviderListInput(fallbackModels).filter((model) => model !== effectivePrimaryModel && modelNames.includes(model)),
+    [effectivePrimaryModel, fallbackModels, modelNames],
   );
   const modelCandidateNames = useMemo(
     () => uniqueStrings([...modelCandidates, ...modelNames]),
@@ -6385,7 +6393,8 @@ export function ProviderEditor({
         name: name.trim() || t("settings.newProviderDraftName"), builtIn: initial?.builtIn ?? false,
         added: initial?.added ?? true, kind: effectiveKind, baseUrl: effectiveBaseUrl,
         chatUrl: effectiveLegacyChatUrl, requestUrl: effectiveRequestUrl, models: modelNames,
-        visionModels: visionModelNames, visionModelsConfigured, default: modelNames[0] ?? "",
+        visionModels: visionModelNames, visionModelsConfigured, default: effectivePrimaryModel,
+        fallbackModels: fallbackModelNames, firstTokenTimeoutSeconds: Number(firstTokenTimeout) || 0,
         apiKeyEnv: effectiveApiKeyEnv, headers: effectiveHeaders, extraBody: effectiveExtraBody,
         authHeader, modelsUrl: effectiveModelsUrl, keySet: Boolean(keyDraft.trim()) || (initial?.keySet ?? false),
         balanceUrl: balanceUrl.trim(), contextWindow: Number(ctx) || 0, reasoningProtocol, thinking,
@@ -6396,7 +6405,7 @@ export function ProviderEditor({
       setConnectionDiagnostic(result);
       if (keyDraft.trim() && result.status === "ok") setKeyDraft("");
     } catch (error) {
-      setConnectionDiagnostic({ status: "error", code: "request_failed", message: String((error as Error)?.message ?? error), model: modelNames[0] ?? "" });
+      setConnectionDiagnostic({ status: "error", code: "request_failed", message: String((error as Error)?.message ?? error), model: effectivePrimaryModel });
     } finally {
       setTestingConnection(false);
     }
@@ -6422,7 +6431,9 @@ export function ProviderEditor({
       models: ms,
       visionModels: vms,
       visionModelsConfigured: visionModelsConfigured || vms.length > 0,
-      default: ms[0] ?? "",
+      default: ms.includes(effectivePrimaryModel) ? effectivePrimaryModel : (ms[0] ?? ""),
+      fallbackModels: fallbackModelNames.filter((model) => ms.includes(model)),
+      firstTokenTimeoutSeconds: Number(firstTokenTimeout) || 0,
       apiKeyEnv: effectiveApiKeyEnv,
       headers: effectiveHeaders,
       extraBody: effectiveExtraBody,
@@ -6627,6 +6638,22 @@ export function ProviderEditor({
           onChange={(e) => setCtx(e.target.value)}
         />
         <div className="mem-hint">{t("settings.contextWindowHint")}</div>
+        <label className="set-label">{t("settings.providerFallbackModels")}</label>
+        <input
+          className="mem-input"
+          placeholder={t("settings.providerModels")}
+          value={fallbackModels}
+          onChange={(e) => setFallbackModels(e.target.value)}
+        />
+        <label className="set-label">{t("settings.providerFirstTokenTimeout")}</label>
+        <input
+          className="mem-input"
+          type="number"
+          min={5}
+          max={300}
+          value={firstTokenTimeout}
+          onChange={(e) => setFirstTokenTimeout(e.target.value)}
+        />
       </div>
     </details>
   );
@@ -6734,7 +6761,11 @@ export function ProviderEditor({
       </div>
       {connectionDiagnostic && (
         <div className={`provider-fetch-status provider-fetch-status--${connectionDiagnostic.status === "ok" ? "ok" : "warn"}`}>
-          {connectionDiagnostic.status === "ok" ? t("settings.providerConnectionSucceeded", { model: connectionDiagnostic.model }) : t("settings.providerConnectionFailed", { code: connectionDiagnostic.code, message: connectionDiagnostic.message })}
+          {connectionDiagnostic.status === "ok" ? t("settings.providerConnectionSucceeded", {
+            model: connectionDiagnostic.model,
+            firstTokenMs: connectionDiagnostic.firstTokenMs ?? 0,
+            latencyMs: connectionDiagnostic.latencyMs ?? 0,
+          }) : t("settings.providerConnectionFailed", { code: connectionDiagnostic.code, message: connectionDiagnostic.message })}
         </div>
       )}
       {fetchStatus && <div className="provider-fetch-status provider-fetch-status--ok">{fetchStatus}</div>}
@@ -6742,6 +6773,10 @@ export function ProviderEditor({
       <label className="set-label">{t("settings.manualModels")}</label>
       <input className="mem-input" placeholder={t("settings.providerModels")} value={models} onChange={(e) => updateManualModels(e.target.value)} />
       <div className="mem-hint">{t("settings.manualModelsHint")}</div>
+      <label className="set-label">{t("settings.defaultModel")}</label>
+      <select className="mem-select" value={effectivePrimaryModel} onChange={(e) => setPrimaryModel(e.target.value)} disabled={busy || modelNames.length === 0}>
+        {modelNames.map((model) => <option key={model} value={model}>{model}</option>)}
+      </select>
       <ProviderEditorModelPicker
         candidates={modelCandidateNames}
         selectedModels={modelNames}

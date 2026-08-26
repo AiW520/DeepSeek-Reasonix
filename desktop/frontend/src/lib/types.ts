@@ -1935,6 +1935,8 @@ export interface ProviderView {
   visionCapability?: "configurable" | "unsupported"; // backend authority; absent on older Wails payloads
   modelsUrl: string; // optional override for model discovery; empty derives from baseUrl
   default: string;
+  fallbackModels?: string[]; // ordered same-provider models used before output starts
+  firstTokenTimeoutSeconds?: number; // zero uses the runtime default
   apiKeyEnv: string;
   headers?: Record<string, string> | null; // optional extra request headers for compatible gateways
   extraBody?: Record<string, unknown> | null; // optional extra top-level request body fields for compatible gateways
@@ -1962,6 +1964,8 @@ export interface ProviderConnectionDiagnostic {
   code: "connected" | "model_required" | "credential_missing" | "authentication_failed" | "endpoint_mismatch" | "upstream_unavailable" | "network_failed" | "empty_response" | "request_failed" | string;
   message: string;
   model: string;
+  latencyMs?: number;
+  firstTokenMs?: number;
 }
 
 export interface ProviderModelCatalogUpdate {

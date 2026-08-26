@@ -3,6 +3,7 @@ package boot
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"reasonix/internal/config"
 	"reasonix/internal/extension"
@@ -73,6 +74,48 @@ func (r *LocalProviderResolver) Resolve(selection provider.Selection) (provider.
 }
 
 func resolveProvider(resolver provider.Resolver, cfg *config.Config, proxy netclient.ProxySpec, selection provider.Selection) (provider.Provider, error) {
+	primary, err := resolveProviderBase(resolver, cfg, proxy, selection)
+	if err != nil {
+		return nil, err
+	}
+	entry, ok := cfg.ResolveModel(selection.Ref)
+	if !ok || len(entry.FallbackModels) == 0 {
+		return primary, nil
+	}
+	primaryRef := modelRefFromEntry(entry)
+	seen := map[string]bool{primaryRef: true}
+	fallbacks := make([]provider.FailoverCandidate, 0, len(entry.FallbackModels))
+	for _, raw := range entry.FallbackModels {
+		ref := strings.TrimSpace(raw)
+		if ref == "" {
+			continue
+		}
+		if !strings.Contains(ref, "/") {
+			ref = entry.Name + "/" + ref
+		}
+		fallbackEntry, found := cfg.ResolveModel(ref)
+		if !found || fallbackEntry.Name != entry.Name {
+			continue
+		}
+		canonical := modelRefFromEntry(fallbackEntry)
+		if seen[canonical] {
+			continue
+		}
+		fallback, fallbackErr := resolveProviderBase(resolver, cfg, proxy, provider.Selection{Ref: canonical, Effort: selection.Effort})
+		if fallbackErr != nil {
+			continue
+		}
+		seen[canonical] = true
+		fallbacks = append(fallbacks, provider.FailoverCandidate{Ref: canonical, Provider: fallback})
+	}
+	if len(fallbacks) == 0 {
+		return primary, nil
+	}
+	timeout := time.Duration(entry.FirstTokenTimeoutSeconds) * time.Second
+	return provider.NewFailoverProvider(primaryRef, primary, fallbacks, timeout), nil
+}
+
+func resolveProviderBase(resolver provider.Resolver, cfg *config.Config, proxy netclient.ProxySpec, selection provider.Selection) (provider.Provider, error) {
 	if resolver != nil {
 		return resolver.Resolve(selection)
 	}

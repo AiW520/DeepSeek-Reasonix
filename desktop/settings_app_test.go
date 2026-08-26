@@ -529,6 +529,65 @@ func TestTestProviderConnectionClassifiesWorkingAndUpstreamFailures(t *testing.T
 	}
 }
 
+func TestTestProviderConnectionUsesConfiguredPrimaryModel(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if _, err := config.SetCredential("TEST_PROVIDER_PRIMARY_KEY", "test-key"); err != nil {
+		t.Fatal(err)
+	}
+	requestedModel := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+			return
+		}
+		requestedModel <- body.Model
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"OK\"}}]}\n\ndata: [DONE]\n\n"))
+	}))
+	defer srv.Close()
+
+	view := ProviderView{
+		Name: "custom", Kind: "openai", BaseURL: srv.URL + "/v1",
+		Models: []string{"slow-first", "stable-primary"}, Default: "stable-primary",
+		APIKeyEnv: "TEST_PROVIDER_PRIMARY_KEY",
+	}
+	got := NewApp().TestProviderConnection(view)
+	if got.Status != "ok" || got.Model != "stable-primary" {
+		t.Fatalf("diagnostic = %+v, want stable-primary success", got)
+	}
+	if model := <-requestedModel; model != "stable-primary" {
+		t.Fatalf("request model = %q, want stable-primary", model)
+	}
+}
+
+func TestTestProviderConnectionReportsFirstTokenTimeout(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if _, err := config.SetCredential("TEST_PROVIDER_TIMEOUT_KEY", "test-key"); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	got := NewApp().TestProviderConnection(ProviderView{
+		Name: "custom", Kind: "openai", BaseURL: srv.URL + "/v1",
+		Models: []string{"silent-model"}, Default: "silent-model",
+		APIKeyEnv: "TEST_PROVIDER_TIMEOUT_KEY", FirstTokenTimeoutSeconds: 1,
+	})
+	if got.Status != "error" || got.Code != "first_token_timeout" || got.LatencyMS < 900 {
+		t.Fatalf("timeout diagnostic = %+v", got)
+	}
+}
+
 func TestFetchAllProviderModelsOmitsFailuresWithoutJSONNulls(t *testing.T) {
 	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -618,6 +677,39 @@ func TestSaveProviderFiltersNonChatModels(t *testing.T) {
 	}
 	if !strings.Contains(block, `vision_models = ["mimo-v2.5-pro"]`) {
 		t.Fatalf("saved provider block did not persist filtered vision_models:\n%s", block)
+	}
+}
+
+func TestSaveProviderPersistsPrimaryFallbackAndTimeout(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	if err := app.SaveProvider(ProviderView{
+		Name: "gateway", Kind: "openai", BaseURL: "https://gateway.example/v1",
+		Models: []string{"slow", "primary", "fallback"}, Default: "primary",
+		FallbackModels: []string{"fallback", "fallback", "unknown"}, FirstTokenTimeoutSeconds: 45,
+		APIKeyEnv: "GATEWAY_API_KEY",
+	}); err != nil {
+		t.Fatalf("SaveProvider: %v", err)
+	}
+
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	entry, ok := cfg.Provider("gateway")
+	if !ok {
+		t.Fatal("saved provider not found")
+	}
+	if entry.DefaultModel() != "primary" {
+		t.Fatalf("default = %q, want primary", entry.DefaultModel())
+	}
+	if want := []string{"fallback"}; !reflect.DeepEqual(entry.FallbackModels, want) {
+		t.Fatalf("fallback_models = %v, want %v", entry.FallbackModels, want)
+	}
+	if entry.FirstTokenTimeoutSeconds != 45 {
+		t.Fatalf("first_token_timeout_seconds = %d, want 45", entry.FirstTokenTimeoutSeconds)
+	}
+	view := providerViewFromEntry(*entry, false, true)
+	if !reflect.DeepEqual(view.FallbackModels, []string{"fallback"}) || view.FirstTokenTimeoutSeconds != 45 {
+		t.Fatalf("round-trip provider view = %+v", view)
 	}
 }
 
