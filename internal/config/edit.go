@@ -596,6 +596,18 @@ func validateProvider(e ProviderEntry) error {
 		return fmt.Errorf("provider %q: model is required", e.Name)
 	case strings.TrimSpace(e.APIKeyEnv) != "" && !IsValidCredentialKey(e.APIKeyEnv):
 		return fmt.Errorf("provider %q: api_key_env %q is not a valid environment variable name", e.Name, e.APIKeyEnv)
+	case e.FirstTokenTimeoutSeconds < 0 || e.FirstTokenTimeoutSeconds > 300:
+		return fmt.Errorf("provider %q: first_token_timeout_seconds must be between 0 and 300", e.Name)
+	}
+	models := map[string]bool{}
+	for _, model := range e.ModelList() {
+		models[strings.TrimSpace(model)] = true
+	}
+	for _, fallback := range e.FallbackModels {
+		fallback = strings.TrimSpace(fallback)
+		if fallback == "" || !models[fallback] {
+			return fmt.Errorf("provider %q: fallback model %q is not in models", e.Name, fallback)
+		}
 	}
 	return nil
 }

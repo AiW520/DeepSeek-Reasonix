@@ -1259,6 +1259,8 @@ function mockProviderTemplate(p: Pick<ProviderView, "name" | "kind" | "baseUrl" 
     visionModelsConfigured: Boolean(p.visionModelsConfigured ?? ((p.visionModels ?? []).length > 0)),
     visionCapability: p.visionCapability,
     default: p.default,
+    fallbackModels: p.fallbackModels ?? [],
+    firstTokenTimeoutSeconds: p.firstTokenTimeoutSeconds ?? 0,
     apiKeyEnv: p.apiKeyEnv,
     headers: p.headers,
     extraBody: p.extraBody,
@@ -4739,8 +4741,8 @@ function makeMockApp(): AppBindings {
       await delay(350);
       const model = p.default || p.models[0] || "";
       return model
-        ? { status: "ok", code: "connected", message: "chat completion succeeded", model }
-        : { status: "error", code: "model_required", message: "select at least one chat model", model: "" };
+        ? { status: "ok", code: "connected", message: "chat completion succeeded", model, firstTokenMs: 180, latencyMs: 420 }
+        : { status: "error", code: "model_required", message: "select at least one chat model", model: "", firstTokenMs: 0, latencyMs: 0 };
     },
     async FetchAllProviderModels(providers: ProviderView[]) {
       const out: Record<string, string[]> = {};

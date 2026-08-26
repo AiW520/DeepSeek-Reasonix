@@ -382,6 +382,12 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			if p.VisionModels != nil {
 				fmt.Fprintf(&b, "vision_models = %s   # models in this provider that accept image input\n", renderStringArray(p.VisionModels))
 			}
+			if len(p.FallbackModels) > 0 {
+				fmt.Fprintf(&b, "fallback_models = %s   # ordered failover models used only before output starts\n", renderStringArray(p.FallbackModels))
+			}
+			if p.FirstTokenTimeoutSeconds > 0 {
+				fmt.Fprintf(&b, "first_token_timeout_seconds = %d   # switch to fallback when no model output arrives in time\n", p.FirstTokenTimeoutSeconds)
+			}
 			if p.VisionDetail != "" {
 				fmt.Fprintf(&b, "vision_detail = %q   # openai image detail hint: low|high; empty = auto\n", p.VisionDetail)
 			}
@@ -1074,6 +1080,12 @@ func RenderTOMLProjectDelta(c *Config) string {
 			}
 			if p.VisionModels != nil {
 				fmt.Fprintf(&b, "vision_models = %s\n", renderStringArray(p.VisionModels))
+			}
+			if len(p.FallbackModels) > 0 {
+				fmt.Fprintf(&b, "fallback_models = %s\n", renderStringArray(p.FallbackModels))
+			}
+			if p.FirstTokenTimeoutSeconds > 0 {
+				fmt.Fprintf(&b, "first_token_timeout_seconds = %d\n", p.FirstTokenTimeoutSeconds)
 			}
 			if p.VisionDetail != "" {
 				fmt.Fprintf(&b, "vision_detail = %q\n", p.VisionDetail)

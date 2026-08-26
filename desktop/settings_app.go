@@ -53,6 +53,8 @@ type ProviderView struct {
 	VisionCapability            string                      `json:"visionCapability,omitempty"`
 	ModelsURL                   string                      `json:"modelsUrl"`
 	Default                     string                      `json:"default"`
+	FallbackModels              []string                    `json:"fallbackModels"`
+	FirstTokenTimeoutSeconds    int                         `json:"firstTokenTimeoutSeconds"`
 	APIKeyEnv                   string                      `json:"apiKeyEnv"`
 	Headers                     map[string]string           `json:"headers"`
 	ExtraBody                   map[string]any              `json:"extraBody"`
@@ -79,10 +81,12 @@ type ProviderView struct {
 }
 
 type ProviderConnectionDiagnostic struct {
-	Status  string `json:"status"`
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Model   string `json:"model"`
+	Status       string `json:"status"`
+	Code         string `json:"code"`
+	Message      string `json:"message"`
+	Model        string `json:"model"`
+	LatencyMS    int64  `json:"latencyMs"`
+	FirstTokenMS int64  `json:"firstTokenMs"`
 }
 
 type ProviderModelCatalogUpdate struct {
@@ -649,6 +653,7 @@ func providerViewFromEntryForRootWithResolverAndCredentials(p config.ProviderEnt
 	return ProviderView{
 		Name: p.Name, BuiltIn: builtIn, Added: added, Kind: p.Kind, BaseURL: p.BaseURL, ChatURL: p.ChatURL, RequestURL: p.RequestURL,
 		Models: nonNil(models), VisionModels: nonNil(providerVisionModels(models, visionModels)), VisionModelsSet: visionModelsSet, VisionCapability: visionCapability, ModelsURL: p.ModelsURL, Default: p.DefaultModel(),
+		FallbackModels: nonNil(p.FallbackModels), FirstTokenTimeoutSeconds: p.FirstTokenTimeoutSeconds,
 		APIKeyEnv:                   p.APIKeyEnv,
 		Headers:                     nonNilStringMap(p.Headers),
 		ExtraBody:                   nonNilAnyMap(p.ExtraBody),
@@ -2460,6 +2465,8 @@ func saveProviderConfig(c *config.Config, p ProviderView) error {
 	e.Models = nil
 	e.Default = ""
 	e.VisionModels = nil
+	e.FallbackModels = nil
+	e.FirstTokenTimeoutSeconds = p.FirstTokenTimeoutSeconds
 	models := chatProviderModels(p.Models)
 	if len(models) > 0 {
 		e.Model = models[0] // also satisfies validateProvider's model requirement
@@ -2471,6 +2478,12 @@ func saveProviderConfig(c *config.Config, p ProviderView) error {
 		}
 		if len(models) > 1 {
 			e.Default = providerDefaultForModels(p.Default, models)
+		}
+		for _, fallback := range p.FallbackModels {
+			fallback = strings.TrimSpace(fallback)
+			if fallback != "" && fallback != e.DefaultModel() && slices.Contains(models, fallback) && !slices.Contains(e.FallbackModels, fallback) {
+				e.FallbackModels = append(e.FallbackModels, fallback)
+			}
 		}
 	} else {
 		e.Vision = false
@@ -2911,6 +2924,7 @@ func providerEntryFromView(p ProviderView) config.ProviderEntry {
 	return config.ProviderEntry{
 		Name: p.Name, Kind: p.Kind, BaseURL: p.BaseURL, ChatURL: strings.TrimSpace(p.ChatURL),
 		RequestURL: strings.TrimSpace(p.RequestURL), Model: model, Models: models,
+		FallbackModels: nonNil(p.FallbackModels), FirstTokenTimeoutSeconds: p.FirstTokenTimeoutSeconds,
 		ModelsURL: strings.TrimSpace(p.ModelsURL), APIKeyEnv: p.APIKeyEnv, Headers: p.Headers,
 		ExtraBody: p.ExtraBody, AuthHeader: p.AuthHeader, ContextWindow: p.ContextWindow,
 		Thinking: p.Thinking, ReasoningProtocol: p.ReasoningProtocol,
@@ -2939,6 +2953,13 @@ func classifyProviderConnectionError(err error, model string) ProviderConnection
 	return diagnostic
 }
 
+func providerConnectionTimeout(seconds int) time.Duration {
+	if seconds <= 0 {
+		return provider.DefaultFirstTokenTimeout
+	}
+	return time.Duration(min(seconds, 300)) * time.Second
+}
+
 // TestProviderConnection makes a minimal real completion so model discovery
 // success cannot be mistaken for a working upstream model route.
 func (a *App) TestProviderConnection(p ProviderView) ProviderConnectionDiagnostic {
@@ -2955,30 +2976,77 @@ func (a *App) TestProviderConnection(p ProviderView) ProviderConnectionDiagnosti
 	if err != nil {
 		return classifyProviderConnectionError(err, model)
 	}
-	ctx, cancel := context.WithTimeout(a.reqCtx(), 45*time.Second)
+	started := time.Now()
+	finish := func(diagnostic ProviderConnectionDiagnostic, firstTokenMS int64) ProviderConnectionDiagnostic {
+		diagnostic.LatencyMS = time.Since(started).Milliseconds()
+		diagnostic.FirstTokenMS = firstTokenMS
+		return diagnostic
+	}
+	ctx, cancel := context.WithCancel(a.reqCtx())
 	defer cancel()
+	deadlineFired := make(chan struct{})
+	firstTokenTimer := time.AfterFunc(providerConnectionTimeout(e.FirstTokenTimeoutSeconds), func() {
+		close(deadlineFired)
+		cancel()
+	})
+	defer firstTokenTimer.Stop()
+	firstTokenExpired := func() bool {
+		select {
+		case <-deadlineFired:
+			return true
+		default:
+			return false
+		}
+	}
 	stream, err := prov.Stream(ctx, provider.Request{
 		Messages:  []provider.Message{{Role: provider.RoleUser, Content: "Reply with OK."}},
 		MaxTokens: 8,
 	})
 	if err != nil {
-		return classifyProviderConnectionError(err, model)
+		diagnostic := classifyProviderConnectionError(err, model)
+		if firstTokenExpired() {
+			diagnostic.Code = "first_token_timeout"
+			diagnostic.Message = "chat endpoint did not produce model output before the first-token deadline"
+		}
+		return finish(diagnostic, 0)
 	}
 	hadOutput := false
-	for chunk := range stream {
-		switch chunk.Type {
-		case provider.ChunkText, provider.ChunkReasoning:
-			hadOutput = hadOutput || chunk.Text != ""
-		case provider.ChunkError:
-			return classifyProviderConnectionError(chunk.Err, model)
-		case provider.ChunkDone:
-			return ProviderConnectionDiagnostic{Status: "ok", Code: "connected", Message: "chat completion succeeded", Model: model}
+	firstTokenMS := int64(0)
+	for {
+		select {
+		case <-ctx.Done():
+			if firstTokenExpired() && firstTokenMS == 0 {
+				return finish(ProviderConnectionDiagnostic{Status: "error", Code: "first_token_timeout", Message: "chat endpoint did not produce model output before the first-token deadline", Model: model}, firstTokenMS)
+			}
+			return finish(classifyProviderConnectionError(ctx.Err(), model), firstTokenMS)
+		case chunk, ok := <-stream:
+			if !ok {
+				if hadOutput {
+					return finish(ProviderConnectionDiagnostic{Status: "ok", Code: "connected", Message: "chat completion succeeded", Model: model}, firstTokenMS)
+				}
+				return finish(ProviderConnectionDiagnostic{Status: "error", Code: "empty_response", Message: "provider closed the response without output", Model: model}, firstTokenMS)
+			}
+			switch chunk.Type {
+			case provider.ChunkText, provider.ChunkReasoning:
+				if chunk.Text != "" {
+					hadOutput = true
+					if firstTokenMS == 0 {
+						firstTokenMS = time.Since(started).Milliseconds()
+						firstTokenTimer.Stop()
+					}
+				}
+			case provider.ChunkError:
+				diagnostic := classifyProviderConnectionError(chunk.Err, model)
+				if firstTokenExpired() && firstTokenMS == 0 {
+					diagnostic.Code = "first_token_timeout"
+					diagnostic.Message = "chat endpoint did not produce model output before the first-token deadline"
+				}
+				return finish(diagnostic, firstTokenMS)
+			case provider.ChunkDone:
+				return finish(ProviderConnectionDiagnostic{Status: "ok", Code: "connected", Message: "chat completion succeeded", Model: model}, firstTokenMS)
+			}
 		}
 	}
-	if hadOutput {
-		return ProviderConnectionDiagnostic{Status: "ok", Code: "connected", Message: "chat completion succeeded", Model: model}
-	}
-	return ProviderConnectionDiagnostic{Status: "error", Code: "empty_response", Message: "provider closed the response without output", Model: model}
 }
 
 // FetchAllProviderModels fetches model lists for all providers in a single

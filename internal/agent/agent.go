@@ -1747,6 +1747,10 @@ func (a *Agent) streamWithFrozen(ctx context.Context, turn int, sink event.Sink,
 	ctx = provider.WithRetryNotify(ctx, func(info provider.RetryInfo) {
 		sink.Emit(event.Event{Kind: event.Retrying, RetryAttempt: info.Attempt, RetryMax: info.Max, RetryScope: event.RetryScopeHeaders})
 	})
+	ctx = provider.WithFailoverNotify(ctx, func(info provider.FailoverInfo) {
+		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Code: "provider_model_failover",
+			Text: fmt.Sprintf("Model %s was unavailable; switched to %s.", info.From, info.To), Detail: "reason=" + info.Reason})
+	})
 	// Reuse a parent attempt counter when present so stream retries accumulate
 	// into one RequestCount; otherwise install a fresh counter for this call.
 	ctx = provider.WithRequestAttemptCounter(ctx)

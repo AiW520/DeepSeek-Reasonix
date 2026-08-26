@@ -1333,21 +1333,23 @@ type AgentConfig struct {
 // token budget; the harness compacts older history as a turn's prompt approaches
 // it (see agent compaction). 0 disables compaction for the instance.
 type ProviderEntry struct {
-	Name          string            `toml:"name"`
-	Kind          string            `toml:"kind"`
-	BaseURL       string            `toml:"base_url"`
-	ChatURL       string            `toml:"chat_url"`    // legacy OpenAI chat endpoint override; retained with its historical semantics
-	RequestURL    string            `toml:"request_url"` // exact provider request URL written by current settings UI
-	Model         string            `toml:"model"`       // a single model (back-compat)
-	Models        []string          `toml:"models"`      // a vendor's model list (one base_url/key, many models)
-	ModelsURL     string            `toml:"models_url"`  // auto-fetch models from this URL on startup
-	Default       string            `toml:"default"`     // default model when Models is set (else Models[0])
-	APIKeyEnv     string            `toml:"api_key_env"`
-	PresetID      string            `toml:"preset_id"`      // curated preset identity; UI-only metadata, not sent to model providers.
-	PresetVersion int               `toml:"preset_version"` // curated preset schema version for future migrations.
-	Headers       map[string]string `toml:"headers"`        // optional extra HTTP headers for compatible gateways; secrets should stay in api_key_env.
-	ExtraBody     map[string]any    `toml:"extra_body"`     // optional extra top-level JSON request body fields for OpenAI-compatible gateways.
-	AuthHeader    bool              `toml:"auth_header"`    // for Anthropic-compatible gateways that expect Authorization: Bearer instead of x-api-key.
+	Name                     string            `toml:"name"`
+	Kind                     string            `toml:"kind"`
+	BaseURL                  string            `toml:"base_url"`
+	ChatURL                  string            `toml:"chat_url"`                    // legacy OpenAI chat endpoint override; retained with its historical semantics
+	RequestURL               string            `toml:"request_url"`                 // exact provider request URL written by current settings UI
+	Model                    string            `toml:"model"`                       // a single model (back-compat)
+	Models                   []string          `toml:"models"`                      // a vendor's model list (one base_url/key, many models)
+	ModelsURL                string            `toml:"models_url"`                  // auto-fetch models from this URL on startup
+	Default                  string            `toml:"default"`                     // default model when Models is set (else Models[0])
+	FallbackModels           []string          `toml:"fallback_models"`             // ordered models used only before the primary emits output
+	FirstTokenTimeoutSeconds int               `toml:"first_token_timeout_seconds"` // zero uses the runtime default when fallback_models is set
+	APIKeyEnv                string            `toml:"api_key_env"`
+	PresetID                 string            `toml:"preset_id"`      // curated preset identity; UI-only metadata, not sent to model providers.
+	PresetVersion            int               `toml:"preset_version"` // curated preset schema version for future migrations.
+	Headers                  map[string]string `toml:"headers"`        // optional extra HTTP headers for compatible gateways; secrets should stay in api_key_env.
+	ExtraBody                map[string]any    `toml:"extra_body"`     // optional extra top-level JSON request body fields for OpenAI-compatible gateways.
+	AuthHeader               bool              `toml:"auth_header"`    // for Anthropic-compatible gateways that expect Authorization: Bearer instead of x-api-key.
 	// ResponsesMode selects the Responses API context strategy. Empty preserves
 	// vendor detection; DeepSeek is stateless while compatible endpoints may use
 	// stateful previous_response_id continuation.
