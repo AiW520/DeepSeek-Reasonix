@@ -11,7 +11,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
   <title>{title}</title>
   <meta name="description" content={description} />
   <link rel="canonical" href={canonical} />
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/reasonix-icon.png" type="image/png" />
   <meta name="theme-color" content="#ffffff" />
   <script is:inline>
 (function(){try{var p=localStorage.getItem("reasonix-theme")||"system";var d=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=d?"#1f232b":"#ffffff";}catch(e){}})();
@@ -24,7 +24,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
 <body data-lang="en">
   <header class="nav">
     <div class="nav-inner">
-      <a class="brand" href="/community/" aria-label="Reasonix Community"><span class="mark" aria-hidden="true">R</span><span class="brand-name">Reasonix</span><span class="ctag"><span class="l-en">Community</span><span class="l-zh">社区</span></span></a>
+      <a class="brand" href="/community/" aria-label="Reasonix Community"><img class="mark" src="/reasonix-icon.png" alt="" /><span class="brand-name">Reasonix</span><span class="ctag"><span class="l-en">Community</span><span class="l-zh">社区</span></span></a>
       <nav class="nav-links">
         <a class={active === "discussions" ? "here" : ""} href="/community/"><span class="l-en">Discussions</span><span class="l-zh">讨论</span></a>
         <a href="/community/?category=skills"><span class="l-en">Skills</span><span class="l-zh">技能</span></a>
@@ -88,7 +88,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
 
   <footer class="foot">
     <div class="foot-inner">
-      <a class="brand" href="/"><span class="mark">R</span>Reasonix</a>
+      <a class="brand" href="/"><img class="mark" src="/reasonix-icon.png" alt="" />Reasonix</a>
       <span><span class="l-en">© 2026 · MIT · built to be left running.</span><span class="l-zh">© 2026 · MIT 许可 · 为常驻运行而生。</span></span>
       <nav class="links">
         <a href="/community/guidelines/"><span class="l-en">Guidelines</span><span class="l-zh">规范</span></a>

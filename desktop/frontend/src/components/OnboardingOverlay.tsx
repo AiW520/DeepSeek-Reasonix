@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import logo from "../assets/logo.svg";
+import logo from "../assets/reasonix-icon.png";
 import { useT } from "../lib/i18n";
 import { app, openExternal } from "../lib/bridge";
 

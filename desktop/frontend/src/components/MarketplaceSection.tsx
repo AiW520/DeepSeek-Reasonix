@@ -23,7 +23,12 @@ export function MarketplaceSection({ kind, installedNames = [], onInstalled }: {
   const [error, setError] = useState("");
   const [done, setDone] = useState<string[]>([]);
 
-  useEffect(() => { void app.MarketplaceCatalog(kind, "").then((v) => setEntries(v.entries)).catch((e) => setError(String(e?.message ?? e))); }, [kind]);
+  useEffect(() => {
+    // Older/mock hosts can omit the optional marketplace binding. Keep the
+    // settings surface mountable while that host is being upgraded.
+    if (typeof app.MarketplaceCatalog !== "function") return;
+    void app.MarketplaceCatalog(kind, "").then((v) => setEntries(v.entries)).catch((e) => setError(String(e?.message ?? e)));
+  }, [kind]);
   const filtered = useMemo(() => entries.filter((e) => (category === "all" || e.category === category) && (!query.trim() || `${e.name} ${e.description} ${e.author}`.toLowerCase().includes(query.trim().toLowerCase()))), [entries, category, query]);
   const installed = (entry: MarketplaceEntry) => installedNames.some((n) => n.toLowerCase() === entry.name.toLowerCase()) || done.includes(entry.id);
 

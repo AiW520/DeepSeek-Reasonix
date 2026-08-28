@@ -2713,6 +2713,7 @@ export const zh: Record<DictKey, string> = {
   "settings.testProviderConnectionHint": "用主模型发送真实请求，验证聊天线路是否可用。",
   "settings.providerConnectionSucceeded": "聊天端点可用（模型：{model}，首字 {firstTokenMs} ms，总耗时 {latencyMs} ms）",
   "settings.providerConnectionFailed": "聊天端点失败（{code}）：{message}",
+  "settings.providerSavedWithoutValidation": "已保存到供应商列表，但聊天端点暂时未能验证；你可以稍后重新测试。",
   "settings.manualModels": "模型列表",
   "settings.manualModelsHint": "接口不支持模型发现时，可手动填写多个模型；下方可勾选哪些模型支持图片输入。",
   "settings.providerFallbackModels": "回退模型（仅零输出时）",

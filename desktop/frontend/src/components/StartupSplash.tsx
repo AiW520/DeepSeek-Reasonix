@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import logoSymbol from "../assets/logo-symbol.svg";
+import logoSymbol from "../assets/reasonix-icon.png";
 import { useT } from "../lib/i18n";
 
 const SPLASH_FLAG = "reasonix.splash.shown";

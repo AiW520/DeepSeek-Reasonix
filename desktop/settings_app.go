@@ -89,6 +89,12 @@ type ProviderConnectionDiagnostic struct {
 	FirstTokenMS int64  `json:"firstTokenMs"`
 }
 
+type ProviderSaveResult struct {
+	Saved      bool                         `json:"saved"`
+	Warning    string                       `json:"warning"`
+	Diagnostic ProviderConnectionDiagnostic `json:"diagnostic"`
+}
+
 type ProviderModelCatalogUpdate struct {
 	Name                string   `json:"name"`
 	ExpectedFingerprint string   `json:"expectedFingerprint"`
@@ -2896,6 +2902,15 @@ func providerPresetNoExistingProviderError(id string) error {
 // endpoint and returns the available model IDs. This is a settings-only helper:
 // it never touches chat request serialization or provider-visible prompt data.
 func (a *App) FetchProviderModels(p ProviderView) ([]string, error) {
+	return a.fetchProviderModels(p, "")
+}
+
+// FetchProviderModelsWithKey probes a draft credential without persisting it.
+func (a *App) FetchProviderModelsWithKey(p ProviderView, key string) ([]string, error) {
+	return a.fetchProviderModels(p, key)
+}
+
+func (a *App) fetchProviderModels(p ProviderView, transientKey string) ([]string, error) {
 	e := config.ProviderEntry{
 		Name:       p.Name,
 		Kind:       p.Kind,
@@ -2905,7 +2920,11 @@ func (a *App) FetchProviderModels(p ProviderView) ([]string, error) {
 		Headers:    p.Headers,
 		AuthHeader: p.AuthHeader,
 	}
-	e.ResolveAPIKeyForRoot(a.activeWorkspaceRoot())
+	if strings.TrimSpace(transientKey) != "" {
+		e.SetAPIKeyForProbe(transientKey)
+	} else {
+		e.ResolveAPIKeyForRoot(a.activeWorkspaceRoot())
+	}
 	ctx, cancel := context.WithTimeout(a.reqCtx(), 15*time.Second)
 	defer cancel()
 	models, err := e.FetchModels(ctx)
@@ -2962,13 +2981,17 @@ func providerConnectionTimeout(seconds int) time.Duration {
 
 // TestProviderConnection makes a minimal real completion so model discovery
 // success cannot be mistaken for a working upstream model route.
-func (a *App) TestProviderConnection(p ProviderView) ProviderConnectionDiagnostic {
+func (a *App) testProviderConnection(p ProviderView, transientKey string) ProviderConnectionDiagnostic {
 	e := providerEntryFromView(p)
 	model := strings.TrimSpace(e.Model)
 	if model == "" {
 		return ProviderConnectionDiagnostic{Status: "error", Code: "model_required", Message: "select at least one chat model", Model: model}
 	}
-	e.ResolveAPIKeyForRoot(a.activeWorkspaceRoot())
+	if strings.TrimSpace(transientKey) != "" {
+		e.SetAPIKeyForProbe(transientKey)
+	} else {
+		e.ResolveAPIKeyForRoot(a.activeWorkspaceRoot())
+	}
 	if e.RequiresAPIKey() && e.APIKey() == "" {
 		return ProviderConnectionDiagnostic{Status: "error", Code: "credential_missing", Message: "provider API key is not configured", Model: model}
 	}
@@ -3047,6 +3070,38 @@ func (a *App) TestProviderConnection(p ProviderView) ProviderConnectionDiagnosti
 			}
 		}
 	}
+}
+
+func (a *App) TestProviderConnection(p ProviderView) ProviderConnectionDiagnostic {
+	return a.testProviderConnection(p, "")
+}
+
+// TestProviderConnectionWithKey validates a draft credential without persisting it.
+func (a *App) TestProviderConnectionWithKey(p ProviderView, key string) ProviderConnectionDiagnostic {
+	return a.testProviderConnection(p, key)
+}
+
+// ValidateAndSaveProvider is the Settings workbench commit gate. It validates
+// the exact draft (including a not-yet-persisted key) with a real streaming
+// completion before changing the live provider configuration. A failed probe
+// returns a structured diagnostic and leaves the current runtime untouched.
+func (a *App) ValidateAndSaveProvider(p ProviderView, key string) (ProviderSaveResult, error) {
+	diagnostic := a.testProviderConnection(p, key)
+	result := ProviderSaveResult{Diagnostic: diagnostic}
+	if diagnostic.Status != "ok" {
+		return result, nil
+	}
+	if strings.TrimSpace(key) != "" {
+		warning, err := a.SaveProviderWithKey(p, key)
+		if err != nil {
+			return result, err
+		}
+		result.Warning = warning
+	} else if err := a.SaveProvider(p); err != nil {
+		return result, err
+	}
+	result.Saved = true
+	return result, nil
 }
 
 // FetchAllProviderModels fetches model lists for all providers in a single

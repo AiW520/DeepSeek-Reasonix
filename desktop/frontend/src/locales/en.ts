@@ -2710,6 +2710,7 @@ export const en = {
   "settings.testProviderConnectionHint": "Sends a real request with the primary model to verify the chat route.",
   "settings.providerConnectionSucceeded": "Chat endpoint is available (model: {model}, first token {firstTokenMs} ms, total {latencyMs} ms)",
   "settings.providerConnectionFailed": "Chat endpoint failed ({code}): {message}",
+  "settings.providerSavedWithoutValidation": "Saved to providers, but the chat endpoint could not be verified yet.",
   "settings.manualModels": "Model list",
   "settings.manualModelsHint": "If the endpoint cannot list models, enter model names manually; mark image-capable models below.",
   "settings.providerFallbackModels": "Fallback models (before output only)",

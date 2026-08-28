@@ -529,6 +529,82 @@ func TestTestProviderConnectionClassifiesWorkingAndUpstreamFailures(t *testing.T
 	}
 }
 
+func TestProviderDraftKeyPersistsOnlyAfterSuccessfulValidation(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	const keyEnv = "TEST_PROVIDER_DRAFT_KEY"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer draft-key" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		if r.URL.Path == "/v1/models" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]string{{"id": "draft-model", "object": "model"}}})
+			return
+		}
+		if r.URL.Path == "/v1/chat/completions" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"OK\"}}]}\n\ndata: [DONE]\n\n"))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	app := NewApp()
+	view := ProviderView{
+		Name: "draft-provider", Kind: "openai", BaseURL: server.URL + "/v1",
+		Models: []string{"draft-model"}, Default: "draft-model", APIKeyEnv: keyEnv,
+	}
+	models, err := app.FetchProviderModelsWithKey(view, "draft-key")
+	if err != nil || !reflect.DeepEqual(models, []string{"draft-model"}) {
+		t.Fatalf("draft model probe = %v, %v", models, err)
+	}
+	diagnostic := app.TestProviderConnectionWithKey(view, "draft-key")
+	if diagnostic.Status != "ok" {
+		t.Fatalf("draft connection diagnostic = %+v", diagnostic)
+	}
+	if _, err := config.GetProviderCredential(keyEnv); err == nil {
+		t.Fatal("draft key was persisted during probe")
+	}
+	result, err := app.ValidateAndSaveProvider(view, "draft-key")
+	if err != nil || !result.Saved || result.Diagnostic.Status != "ok" {
+		t.Fatalf("validated save = %+v, %v", result, err)
+	}
+	if _, ok := config.LoadForEdit(config.UserConfigPath()).Provider("draft-provider"); !ok {
+		t.Fatal("validated provider was not persisted")
+	}
+	credential := config.ResolveCredentialForRootGlobalFirst(".", keyEnv)
+	if !credential.Set || credential.Value != "draft-key" {
+		t.Fatalf("validated credential = %+v", credential)
+	}
+}
+
+func TestValidateAndSaveProviderLeavesConfigUnchangedOnProbeFailure(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	const keyEnv = "TEST_PROVIDER_FAILED_DRAFT_KEY"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, `{"error":{"message":"no available channel"}}`, http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	result, err := NewApp().ValidateAndSaveProvider(ProviderView{
+		Name: "failed-draft-provider", Kind: "openai", BaseURL: server.URL + "/v1",
+		Models: []string{"unavailable-model"}, Default: "unavailable-model", APIKeyEnv: keyEnv,
+	}, "draft-key")
+	if err != nil {
+		t.Fatalf("ValidateAndSaveProvider returned error: %v", err)
+	}
+	if result.Saved || result.Diagnostic.Status == "ok" {
+		t.Fatalf("failed probe unexpectedly saved: %+v", result)
+	}
+	if _, ok := config.LoadForEdit(config.UserConfigPath()).Provider("failed-draft-provider"); ok {
+		t.Fatal("failed provider was persisted")
+	}
+	if _, err := config.GetProviderCredential(keyEnv); err == nil {
+		t.Fatal("failed draft key was persisted")
+	}
+}
+
 func TestTestProviderConnectionUsesConfiguredPrimaryModel(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	if _, err := config.SetCredential("TEST_PROVIDER_PRIMARY_KEY", "test-key"); err != nil {

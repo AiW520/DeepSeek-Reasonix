@@ -2132,6 +2132,21 @@ func (e *ProviderEntry) ResolveAPIKeyFromProcessEnvForProbe() {
 	e.resolvedSource = CredentialSource{Kind: CredentialSourceEnvironment, Label: "setup prompt"}
 }
 
+// SetAPIKeyForProbe pins a user-entered credential only on this in-memory
+// entry. Settings uses it to validate a draft before committing either the
+// provider or its secret to persistent storage.
+func (e *ProviderEntry) SetAPIKeyForProbe(value string) {
+	if e == nil {
+		return
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	e.resolvedAPIKey = value
+	e.resolvedSource = CredentialSource{Kind: CredentialSourceEnvironment, Label: "settings validation"}
+}
+
 func (e *ProviderEntry) APIKeySourceLabel() string {
 	if e == nil || strings.TrimSpace(e.APIKeyEnv) == "" {
 		return ""

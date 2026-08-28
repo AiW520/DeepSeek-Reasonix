@@ -1646,6 +1646,56 @@ export interface ProjectAnalysisJobView {
   result?: ProjectAnalysisResult;
 }
 
+export interface CreationImageRequest {
+  prompt: string;
+  size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
+  quality: "auto" | "low" | "medium" | "high";
+  outputFormat: "png" | "jpeg" | "webp";
+  background: "auto" | "transparent" | "opaque";
+}
+
+export interface CreationImageStatusView {
+  configured: boolean;
+  model: string;
+  endpoint: string;
+}
+
+export interface CreationImageView {
+  id: string;
+  path: string;
+  filename: string;
+  prompt?: string;
+  size?: string;
+  quality?: string;
+  background?: string;
+  mime: string;
+  bytes: number;
+  createdAt: number;
+  preview?: string;
+}
+
+export interface PresentationDraftRequest {
+  topic: string;
+  audience: string;
+  tone: string;
+  slideCount: number;
+}
+
+export interface PresentationSlide {
+  title: string;
+  subtitle?: string;
+  bullets?: string[];
+  speakerNotes?: string;
+  layout?: "cover" | "section" | "content" | "summary" | string;
+}
+
+export interface PresentationOutline {
+  title: string;
+  subtitle?: string;
+  theme?: string;
+  slides: PresentationSlide[];
+}
+
 export interface GitHubConnectionView { configured: boolean; connected: boolean; login?: string; name?: string; avatarUrl?: string; profileUrl?: string; scopes?: string; error?: string; }
 export interface GitHubDeviceFlowStart { deviceCode: string; userCode: string; verificationUri: string; expiresIn: number; interval: number; }
 export interface GitHubDeviceFlowPollResult { status: "pending" | "connected" | "access_denied" | "expired_token"; interval?: number; connection: GitHubConnectionView; }
@@ -1966,6 +2016,12 @@ export interface ProviderConnectionDiagnostic {
   model: string;
   latencyMs?: number;
   firstTokenMs?: number;
+}
+
+export interface ProviderSaveResult {
+  saved: boolean;
+  warning?: string;
+  diagnostic: ProviderConnectionDiagnostic;
 }
 
 export interface ProviderModelCatalogUpdate {

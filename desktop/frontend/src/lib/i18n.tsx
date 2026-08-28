@@ -53,7 +53,13 @@ export const SPINNER_WORDS: Record<Locale, string[]> = {
 
 export function detectLocale(pref: LangPref): Locale {
   if (pref === "en" || pref === "zh" || pref === "zh-TW") return pref;
-  const nav = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "en";
+  // Prefer the browser/WebView navigator over Node's process-level navigator.
+  // Node 21+ exposes a host-locale navigator, which can leak into jsdom tests
+  // unless the injected window is the source of truth.
+  const browserLanguage = typeof window !== "undefined" && window.navigator
+    ? window.navigator.language
+    : typeof navigator !== "undefined" ? navigator.language : "en";
+  const nav = browserLanguage.toLowerCase();
   if (nav.startsWith("zh-tw") || nav.startsWith("zh-hant") || nav === "zh-hk" || nav === "zh-mo") return "zh-TW";
   return nav.startsWith("zh") ? "zh" : "en";
 }

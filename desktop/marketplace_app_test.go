@@ -19,6 +19,9 @@ func TestMarketplaceCatalogIsPinnedAndReviewed(t *testing.T) {
 		if !strings.HasPrefix(entry.Repository, "https://github.com/") {
 			t.Errorf("%s has unreviewed host: %s", entry.ID, entry.Repository)
 		}
+		if strings.Contains(entry.Repository, "/tree/") {
+			t.Errorf("%s repository contains a revision path: %s", entry.ID, entry.Repository)
+		}
 		if len(entry.Commit) != 40 {
 			t.Errorf("%s commit is not a full SHA: %q", entry.ID, entry.Commit)
 		}
@@ -31,6 +34,18 @@ func TestMarketplaceCatalogIsPinnedAndReviewed(t *testing.T) {
 		if entry.License == "" || entry.Author == "" {
 			t.Errorf("%s lacks provenance", entry.ID)
 		}
+	}
+}
+
+func TestMarketplaceInstallSourcePinsSkillExactlyOnce(t *testing.T) {
+	entry := MarketplaceEntry{
+		Kind:       "skill",
+		Repository: "https://github.com/runesleo/claude-video-kit/tree/old-revision",
+		Commit:     "f09790c6e90e610b9dbdec0d1983bd5abeecd0bf",
+	}
+	want := "https://github.com/runesleo/claude-video-kit/tree/" + entry.Commit
+	if got := marketplaceInstallSource(entry); got != want {
+		t.Fatalf("marketplaceInstallSource() = %q, want %q", got, want)
 	}
 }
 

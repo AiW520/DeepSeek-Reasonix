@@ -27,10 +27,11 @@ import { app } from "../lib/bridge";
 import type { ProjectAnalysisJobView, ProjectAnalysisResult } from "../lib/types";
 import { ModalCloseButton } from "./ModalCloseButton";
 import "./ProjectLearningWorkspace.css";
+import "./SuperWorkspace.css";
 
 type View = "overview" | "explorer" | "graph" | "security";
 
-export function ProjectLearningWorkspace({ initialRoot = "", onClose }: { initialRoot?: string; onClose: () => void }) {
+export function ProjectLearningWorkspace({ initialRoot = "", onClose, embedded = false }: { initialRoot?: string; onClose: () => void; embedded?: boolean }) {
   const [root, setRoot] = useState(initialRoot);
   const [job, setJob] = useState<ProjectAnalysisJobView | null>(null);
   const [view, setView] = useState<View>("overview");
@@ -67,7 +68,7 @@ export function ProjectLearningWorkspace({ initialRoot = "", onClose }: { initia
   const percent = job?.total ? Math.min(100, Math.round((job.done / job.total) * 100)) : 0;
 
   return (
-    <div className="learning-workspace" role="dialog" aria-modal="true" aria-label="项目逆向学习引擎">
+    <div className={`learning-workspace${embedded ? " learning-workspace--embedded" : ""}`} role={embedded ? "region" : "dialog"} aria-modal={embedded ? undefined : true} aria-label="项目逆向学习引擎">
       <aside className="learning-workspace__rail">
         <div className="learning-workspace__brand">
           <span className="learning-workspace__brand-mark"><GraduationCap size={20} /></span>

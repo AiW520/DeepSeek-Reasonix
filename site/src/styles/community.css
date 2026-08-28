@@ -70,6 +70,7 @@ body[data-lang="zh"] .l-en { display: none !important; }
 .nav-inner { display: flex; align-items: center; gap: 20px; height: 64px; max-width: 1180px; margin: 0 auto; padding: 0 32px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
 .brand .mark { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(140deg, var(--accent), var(--violet)); color: #fff; font-weight: 700; font-size: 15px; }
+.brand img.mark { object-fit: cover; display: block; }
 .brand .ctag { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 9px; border-radius: 999px; }
 .nav-links { display: flex; gap: 4px; margin-left: 12px; }
 .nav-links a { color: var(--ink-2); font-size: 14.5px; font-weight: 500; padding: 8px 14px; border-radius: 7px; transition: color 0.2s, background 0.2s; }

@@ -9,6 +9,7 @@ import { ToolCard } from "./ToolCard";
 import { ExtensionCard } from "./ExtensionCard";
 import { ArrowDown, Loader2 } from "lucide-react";
 import { Welcome } from "./Welcome";
+import type { WorkbenchModule } from "../lib/workbench";
 import { ReadOnlyBatch } from "./ReadOnlyBatch";
 import { ToolGroup } from "./ToolGroup";
 import { getProcessFoldPreference, onProcessFoldPreferenceChange, type ProcessFoldPreference } from "../lib/processFoldPreference";
@@ -232,6 +233,8 @@ export function Transcript({
   tabId,
   footerHeight = 0,
   onPrompt,
+  onOpenModule,
+  onOpenModelSettings,
   onDeliveryContinue,
   onOpenChanges,
   onEditPrompt,
@@ -260,6 +263,8 @@ export function Transcript({
   tabId?: string;
   footerHeight?: number;
   onPrompt: (text: string) => void;
+  onOpenModule?: (module: WorkbenchModule) => void;
+  onOpenModelSettings?: () => void;
   onDeliveryContinue?: () => void;
   onOpenChanges?: () => void;
   onEditPrompt?: (turn: number, displayText: string, submitText?: string) => boolean | void | Promise<boolean | void>;
@@ -924,7 +929,7 @@ export function Transcript({
               <Loader2 className="transcript__loading-icon" aria-hidden="true" />
               <span>{t("common.loading")}</span>
             </div>
-          ) : <Welcome onPrompt={onPrompt} variant={welcomeVariant} />}
+          ) : <Welcome onPrompt={onPrompt} onOpenModule={onOpenModule} onOpenModelSettings={onOpenModelSettings} variant={welcomeVariant} />}
         </div>
       ) : (
         <LiveStreamContext.Provider value={live}>

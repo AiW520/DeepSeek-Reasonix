@@ -55,6 +55,8 @@ import { decisionSurfaceMockFromInput, type DecisionSurfaceKind as MockDecisionS
 const UndoRewindBanner = lazy(() => import("./components/UndoRewindBanner").then((module) => ({ default: module.UndoRewindBanner })));
 const ProjectTree = lazy(() => import("./components/ProjectTree").then((module) => ({ default: module.ProjectTree })));
 const ProjectLearningWorkspace = lazy(() => import("./components/ProjectLearningWorkspace").then((module) => ({ default: module.ProjectLearningWorkspace })));
+const CreationCenterWorkspace = lazy(() => import("./components/CreationCenterWorkspace").then((module) => ({ default: module.CreationCenterWorkspace })));
+const MarketplaceWorkspace = lazy(() => import("./components/MarketplaceWorkspace").then((module) => ({ default: module.MarketplaceWorkspace })));
 const DevelopmentStudioPanel = lazy(() => import("./components/DevelopmentStudioPanel").then((module) => ({ default: module.DevelopmentStudioPanel })));
 /** Footer decision surface kinds. Runtime blockers are explicit recovery choices. */
 type DecisionSurfaceKind = MockDecisionSurfaceKind | "extension_form";
@@ -116,6 +118,7 @@ import type { InvocationMetadataMap, StructuredInvocationSubmit } from "./lib/in
 import type { RewindUndoState } from "./lib/rewindTypes";
 import { formatSelectionReference, type SelectedTextInsertRequest } from "./lib/selectedTextContext";
 import { resolveTaskMonitorSession } from "./lib/taskMonitorNavigation";
+import type { WorkbenchModule } from "./lib/workbench";
 import {
   composerProfileFromMeta,
   composerProfileFromTab,
@@ -206,7 +209,7 @@ import { topicShortcutIndexFromEvent, useTopicShortcuts, type TopicShortcutEntry
 import { composerDraftKeyForTab } from "./lib/composerDraftKey";
 import { continueDelivery } from "./lib/deliveryContinue";
 import { activateGoalAndSubmitOnTab } from "./lib/goalSubmit";
-import logoWordmark from "./assets/logo-wordmark.svg";
+import logoIcon from "./assets/reasonix-icon.png";
 // Hold reasoning UI until the authoritative desktop startup settings arrive;
 // this prevents a hidden preference from flashing content during first paint.
 setReasoningDisplayPending();
@@ -1133,7 +1136,7 @@ export default function App() {
   const needsOnboarding = useOverlayStore((s) => s.needsOnboarding);
   const setNeedsOnboarding = useOverlayStore((s) => s.setNeedsOnboarding);
   const [providerSetupNeeded, setProviderSetupNeeded] = useState(false);
-  const [projectLearningOpen, setProjectLearningOpen] = useState(false);
+  const [workbenchModule, setWorkbenchModule] = useState<WorkbenchModule | null>(null);
   const settingsTarget = useOverlayStore((s) => s.settingsTarget);
   const setSettingsTarget = useOverlayStore((s) => s.setSettingsTarget);
   const settingsFocus = useOverlayStore((s) => s.settingsFocus);
@@ -3786,6 +3789,7 @@ export default function App() {
 
   const handleNewTab = useCallback(async () => {
     closeTransientOverlays();
+    setWorkbenchModule(null);
     setSidebarImDetailConnectionId("");
     const target = blankSessionTarget();
     await openBlankSession(target.scope, target.workspaceRoot);
@@ -4306,7 +4310,8 @@ export default function App() {
             <>
               <div className="sidebar__head" aria-hidden={sidebarCollapsed}>
                 <div className="sidebar__brand sidebar__brand--workbench">
-                  <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
+                  <img src={logoIcon} alt="Reasonix" className="sidebar__brand-logo sidebar__brand-logo--workbench" draggable={false} />
+                  <strong className="sidebar__brand-name">Reasonix</strong>
                 </div>
               </div>
 
@@ -4322,22 +4327,35 @@ export default function App() {
                   <span>{t("topbar.newSession")}</span>
                 </button>
                 <button
-                  className="sidebar__quick-action"
+                  className={`sidebar__quick-action${workbenchModule === "project-analysis" ? " sidebar__quick-action--active" : ""}`}
                   type="button"
                   onClick={() => {
                     closeTransientOverlays();
-                    setProjectLearningOpen(true);
+                    setWorkbenchModule("project-analysis");
                   }}
                 >
                   <Brain size={18} aria-hidden="true" />
-                  <span>项目逆向学习</span>
+                  <span>项目深度分析</span>
+                </button>
+                <button className={`sidebar__quick-action${workbenchModule === "image" ? " sidebar__quick-action--active" : ""}`} type="button" onClick={() => setWorkbenchModule("image")}>
+                  <FileImage size={18} aria-hidden="true" /><span>AI 图片创作</span>
+                </button>
+                <button className={`sidebar__quick-action${workbenchModule === "ppt" ? " sidebar__quick-action--active" : ""}`} type="button" onClick={() => setWorkbenchModule("ppt")}>
+                  <FileText size={18} aria-hidden="true" /><span>PPT 智能制作</span>
+                </button>
+                <button className={`sidebar__quick-action${workbenchModule === "plugins" ? " sidebar__quick-action--active" : ""}`} type="button" onClick={() => setWorkbenchModule("plugins")}>
+                  <Puzzle size={18} aria-hidden="true" /><span>插件广场</span>
+                </button>
+                <button className={`sidebar__quick-action${workbenchModule === "skills" ? " sidebar__quick-action--active" : ""}`} type="button" onClick={() => setWorkbenchModule("skills")}>
+                  <Command size={18} aria-hidden="true" /><span>Skill 广场</span>
                 </button>
               </div>
             </>
           ) : (
             <>
               <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
-                <img src={logoWordmark} alt="Reasonix" className="sidebar__brand-logo" draggable={false} />
+                <img src={logoIcon} alt="Reasonix" className="sidebar__brand-logo" draggable={false} />
+                <strong className="sidebar__brand-name">Reasonix</strong>
               </div>
 
               <button
@@ -4394,7 +4412,7 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     closeTransientOverlays();
-                    setProjectLearningOpen(true);
+                    setWorkbenchModule("project-analysis");
                   }}
                 >
                   <Brain size={14} aria-hidden="true" />
@@ -4521,7 +4539,7 @@ export default function App() {
                   className="sidebar__navitem"
                   onClick={() => {
                     closeTransientOverlays();
-                    setProjectLearningOpen(true);
+                    setWorkbenchModule("project-analysis");
                   }}
                 >
                   <Brain size={15} />
@@ -4571,6 +4589,25 @@ export default function App() {
         )}
 
         <section className={`chat-pane${creationEmptyHero ? " chat-pane--creation-empty" : ""}`}>
+          {workbenchModule && (
+            <div className="super-workspace-overlay">
+              <Suspense fallback={<div className="super-workspace-loading">正在加载工作区...</div>}>
+                {workbenchModule === "project-analysis" && (
+                  <ProjectLearningWorkspace
+                    embedded
+                    initialRoot={activeTab?.scope === "project" ? activeTab.workspaceRoot || "" : state.meta?.workspaceRoot || state.meta?.cwd || ""}
+                    onClose={() => setWorkbenchModule(null)}
+                  />
+                )}
+                {(workbenchModule === "image" || workbenchModule === "ppt") && (
+                  <CreationCenterWorkspace mode={workbenchModule} onModeChange={setWorkbenchModule} onClose={() => setWorkbenchModule(null)} />
+                )}
+                {(workbenchModule === "plugins" || workbenchModule === "skills") && (
+                  <MarketplaceWorkspace mode={workbenchModule} onModeChange={setWorkbenchModule} onClose={() => setWorkbenchModule(null)} />
+                )}
+              </Suspense>
+            </div>
+          )}
           <>
           <header className="topicbar">
             {workbenchChromeHidden && (
@@ -4864,6 +4901,8 @@ export default function App() {
                   tabId={activeTabId}
                   footerHeight={footerHeight}
                   onPrompt={handleTranscriptPrompt}
+                  onOpenModule={setWorkbenchModule}
+                  onOpenModelSettings={() => setSettingsTarget("models")}
                   onDeliveryContinue={() => void handleDeliveryContinue()}
                   onOpenChanges={() => openRightDockMode("changed")}
                   onEditPrompt={handleEditPrompt}
@@ -4891,7 +4930,7 @@ export default function App() {
           </main>
 
           {!sidebarImDetailConnection && (
-          <footer className={["footer", terminalPanelOpen && !sidebarCreation ? "footer--compact" : "", visibleDecisionSurface ? "footer--decision" : ""].filter(Boolean).join(" ")} ref={footerRef}>
+          <footer className={["footer", terminalPanelOpen && !sidebarCreation ? "footer--compact" : "", decisionSurface ? "footer--decision" : ""].filter(Boolean).join(" ")} ref={footerRef}>
             {!runtimeTransitioning && showTodos && (
               <TodoPanel
                 key={scopedTodoBatch}
@@ -5413,15 +5452,6 @@ export default function App() {
                 .then(applyDesktopPreferences)
                 .catch((e) => console.warn("desktop preferences refresh failed", e));
             }}
-          />
-        </Suspense>
-      )}
-
-      {projectLearningOpen && (
-        <Suspense fallback={null}>
-          <ProjectLearningWorkspace
-            initialRoot={activeTab?.scope === "project" ? activeTab.workspaceRoot || "" : state.meta?.workspaceRoot || state.meta?.cwd || ""}
-            onClose={() => setProjectLearningOpen(false)}
           />
         </Suspense>
       )}

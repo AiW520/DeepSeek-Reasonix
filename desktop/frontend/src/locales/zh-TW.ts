@@ -1437,6 +1437,7 @@ export const zhTW: Record<DictKey, string> = {
   "settings.providerAccess": "供應商接入",
   "settings.providerAccessHint": "新增官方或自訂供應商後，才會出現在這裡。可用模型以供應商返回的列表為準。",
   "settings.providerAccessEmptyTitle": "還沒有新增供應商",
+  "settings.providerSavedWithoutValidation": "已儲存到供應商列表，但聊天端點暫時無法驗證；你可以稍後重新測試。",
   "settings.builtinProviders": "內建供應商",
   "settings.builtinProvider": "內建",
   "settings.providerLabel.deepseek": "DeepSeek 官方",

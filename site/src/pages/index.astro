@@ -283,10 +283,22 @@ const ld = {
   </section>
 
   <section class="cta" id="start">
-    <h2 class="reveal"><span class="l-en">Start a session that <span class="em">lasts.</span></span><span class="l-zh">开启一场<span class="em">不会中断</span>的会话。</span></h2>
-    <p class="reveal" style="--d:0.08s"><span class="l-en">Open source under MIT. Bring your own DeepSeek API key — your code never leaves your machine and the model.</span><span class="l-zh">MIT 开源。使用你自己的 DeepSeek API Key——代码不会离开你的机器与模型。</span></p>
+    <div class="cta-shell">
+      <div class="download-hero reveal">
+        <img src={`${base}/reasonix-icon.png`} alt="Reasonix" width="88" height="88" loading="lazy" />
+        <div>
+          <span class="download-hero__eyebrow"><span class="l-en">REASONIX WORKBENCH</span><span class="l-zh">REASONIX 工作台</span></span>
+          <h2><span class="l-en">Start a session that <span class="em">lasts.</span></span><span class="l-zh">开启一场<span class="em">不会中断</span>的会话。</span></h2>
+          <p><span class="l-en">One local engine for coding, review, image creation, and presentations. Pick your platform and get the full workbench.</span><span class="l-zh">一套本地引擎，覆盖编程、审查、图片创作与演示文稿。选择平台，立即获得完整工作台。</span></p>
+        </div>
+        <div class="download-hero__proof">
+          <span><b>MIT</b><small><span class="l-en">open source</span><span class="l-zh">开源许可</span></small></span>
+          <span><b data-release-version="desktop">latest</b><small><span class="l-en">official build</span><span class="l-zh">正式构建</span></small></span>
+          <span><b>0</b><small><span class="l-en">runtime installs</span><span class="l-zh">额外运行时</span></small></span>
+        </div>
+      </div>
 
-    <div class="dl reveal" style="--d:0.14s">
+      <div class="dl reveal" style="--d:0.14s">
       <div class="dl-tabs" role="tablist" aria-label="Download method / 下载方式">
         <button class="dl-tab active" id="download-tab-desktop" type="button" data-pane="desktop" role="tab" aria-controls="download-pane-desktop" aria-selected="true" tabindex="0"><span class="l-en">Desktop</span><span class="l-zh">桌面端</span></button>
         <button class="dl-tab" id="download-tab-cli" type="button" data-pane="cli" role="tab" aria-controls="download-pane-cli" aria-selected="false" tabindex="-1">CLI</button>
@@ -404,13 +416,14 @@ const ld = {
         <span class="install"><span class="ps1">$</span>brew install esengine/reasonix/reasonix<button data-copy="brew install esengine/reasonix/reasonix">Copy</button></span>
         <div class="dl-note"><span class="l-en"><span class="rxv">{goVer}</span> (Go rewrite) · macOS &amp; Linux · update with <span class="mono">brew upgrade</span></span><span class="l-zh"><span class="rxv">{goVer}</span>(Go 重写)· macOS 与 Linux · 通过 <span class="mono">brew upgrade</span> 更新</span></div>
       </div>
+      </div>
     </div>
   </section>
   </main>
 
   <footer>
     <div class="foot-inner">
-      <a class="brand" href={`${base}/`}><img src={`${base}/logo.svg`} alt="Reasonix logo" /><span>Reasonix</span></a>
+      <a class="brand" href={`${base}/`}><img src={`${base}/reasonix-icon.png`} alt="Reasonix logo" /><span>Reasonix</span></a>
       <span><span class="l-en">© 2026 Reasonix · MIT licensed · built to be left running.</span><span class="l-zh">© 2026 Reasonix · MIT 许可 · 为常驻运行而生。</span></span>
       <nav class="foot-links">
         <a href={repo}>GitHub</a>

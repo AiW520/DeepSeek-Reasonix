@@ -33,9 +33,10 @@ const items: Array<{
   <div class="nav-inner">
     <a class="brand" href={`${base}/`}>
       <picture class="brand-picture">
-        <source media="(max-width: 400px)" srcset={`${base}/favicon.svg`} />
-        <img src={`${base}/logo.svg`} alt="Reasonix logo" />
+        <source media="(max-width: 400px)" srcset={`${base}/reasonix-icon.png`} />
+        <img src={`${base}/reasonix-icon.png`} alt="Reasonix logo" />
       </picture>
+      <span class="brand-name">Reasonix</span>
     </a>
     <nav class="nav-links" aria-label="Primary navigation">
       {items.map((item) => (

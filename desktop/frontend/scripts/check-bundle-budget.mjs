@@ -98,7 +98,7 @@ for (const path of localeChunks) {
   // Provider endpoint diagnostics and the cache optimization center add
   // actionable localized guidance while remaining outside the initial graph.
   // Bound their measured locale-only increase without relaxing startup gates.
-  const budget = name.startsWith("zh-TW-") ? 57.0 * 1024 : 56.3 * 1024;
+  const budget = name.startsWith("zh-TW-") ? 57.1 * 1024 : 56.4 * 1024;
   assertBudget(`${name} gzip`, gzipBytes(path), budget);
 }
 

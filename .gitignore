@@ -29,6 +29,7 @@ mem.prof
 /desktop/frontend/dist/*
 !/desktop/frontend/dist/.gitkeep
 /desktop/frontend/sourcemaps/
+/desktop/frontend/.test-*.log
 /desktop/frontend/wailsjs/
 /desktop/frontend/package.json.md5
 

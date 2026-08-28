@@ -1,5 +1,5 @@
 import { lazy, memo, Suspense, startTransition, useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { ArrowRight, Bot as BotIcon, BrainCircuit, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign, Clipboard, ExternalLink, KeyRound, Languages, ListChecks, Loader2, MessageCircle, Monitor, MoreHorizontal, PanelBottom, Play, Power, QrCode, RefreshCw, Send, ShieldCheck, SlidersHorizontal, Trash2, Volume2 } from "lucide-react";
+import { ArrowRight, Bot as BotIcon, BrainCircuit, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign, Clipboard, ExternalLink, KeyRound, Languages, ListChecks, Loader2, MessageCircle, Monitor, MoreHorizontal, PanelBottom, Play, Plus, Power, QrCode, RefreshCw, Send, ShieldCheck, SlidersHorizontal, Trash2, Volume2 } from "lucide-react";
 import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
 import { app, openExternal } from "../lib/bridge";
@@ -63,7 +63,7 @@ import {
   shortcutDefinitions,
   type ShortcutAction,
 } from "../lib/keyboardShortcuts";
-import type { BotAccessView, BotAllowlistView, BotConnectionDiagnostic, BotConnectionView, BotInstallStartResult, BotRouteView, BotSettingsView, HookConfigView, HooksSettingsView, NetworkView, ProviderConnectionDiagnostic, ProviderModelCatalogUpdate, ProviderPresetView, ProviderView, SettingsTab, SettingsView } from "../lib/types";
+import type { BotAccessView, BotAllowlistView, BotConnectionDiagnostic, BotConnectionView, BotInstallStartResult, BotRouteView, BotSettingsView, HookConfigView, HooksSettingsView, NetworkView, ProviderConnectionDiagnostic, ProviderModelCatalogUpdate, ProviderPresetView, ProviderSaveResult, ProviderView, SettingsTab, SettingsView } from "../lib/types";
 import { AppearanceOverview } from "./AppearanceOverview";
 import { applyConfiguredBaseAppearance, setBaseAppearance } from "../lib/themePack";
 import { InlineConfirmButton } from "./InlineConfirmButton";
@@ -4551,6 +4551,29 @@ function providerKeyStatusLabel(provider: { keySet: boolean; requiresKey?: boole
   return provider.keySet ? t("settings.keySet") : t("settings.noKey");
 }
 
+async function validateAndSaveProviderDraft(
+  provider: ProviderView,
+  key: string | undefined,
+  fallbackWarning: string,
+): Promise<ProviderSaveResult> {
+  const validation = await app.ValidateAndSaveProvider(provider, key ?? "");
+  if (validation.saved) return validation;
+
+  // A gateway can expose /models while temporarily rejecting chat completions
+  // (for example with no_available_channel). Keep the user's configuration in
+  // the provider list so it can be repaired and tested later instead of
+  // silently discarding the draft.
+  const persistedWarning = key?.trim()
+    ? await app.SaveProviderWithKey(provider, key.trim())
+    : (await app.SaveProvider(provider), "");
+  const warning = [
+    fallbackWarning,
+    validation.diagnostic.message,
+    persistedWarning,
+  ].filter((value) => value.trim()).join(" ");
+  return { ...validation, saved: true, warning };
+}
+
 function modelProviderLabel(provider: string, providerView: ProviderView | undefined, t: ReturnType<typeof useT>): string {
   return providerView ? providerGroupLabel(providerView, t) : provider;
 }
@@ -4591,6 +4614,7 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
   const defaultProvider = toRef(s.defaultModel, s).split("/")[0];
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState<AddProviderMode>(null);
+  const [selectedGroupID, setSelectedGroupID] = useState<string>("");
   const [revealedProvider, setRevealedProvider] = useState<string | null>(null);
   const [fetchingProviders, setFetchingProviders] = useState<Set<string>>(() => new Set());
   const fetchGate = useMemo(createLatestRequestGate, []);
@@ -4598,6 +4622,11 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
   const [modelDrafts, setModelDrafts] = useState<Record<string, ProviderModelDraft>>({});
   const visibleProviders = useMemo(() => s.providers.filter((p) => p.added || p.name === revealedProvider), [s.providers, revealedProvider]);
   const groups = useMemo(() => providerAccessGroups(visibleProviders, t), [visibleProviders, t]);
+  const selectedGroup = groups.find((group) => group.id === selectedGroupID) ?? groups[0];
+
+  useEffect(() => {
+    if (selectedGroup && selectedGroup.id !== selectedGroupID) setSelectedGroupID(selectedGroup.id);
+  }, [selectedGroup, selectedGroupID]);
 
   useEffect(() => {
     if (revealedProvider && !s.providers.some((p) => p.name === revealedProvider)) {
@@ -4751,10 +4780,20 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
     setGroupModelDraft(group.id, null);
     try {
       await apply(async () => {
-        await app.SaveProviderKey(apiKeyEnv, value);
-        invalidateProviderCacheByAPIKeyEnv(apiKeyEnv);
         try {
-          const fetched = await cachedFetchProviderModels((provider) => app.FetchProviderModels(provider), { ...probe, apiKeyEnv });
+          const validation = await app.ValidateAndSaveProvider({ ...probe, apiKeyEnv }, value);
+          if (!validation.saved) {
+            setGroupFetchResult(group.id, {
+              kind: "warn",
+              text: t("settings.providerConnectionFailed", {
+                code: validation.diagnostic.code,
+                message: validation.diagnostic.message,
+              }),
+            });
+            return;
+          }
+          invalidateProviderCacheByAPIKeyEnv(apiKeyEnv);
+          const fetched = await app.FetchProviderModelsWithKey({ ...probe, apiKeyEnv }, value);
           if (!groupFetchIsCurrent(group.id, generation)) return;
           if (fetched.length > 0) {
             const draft = modelDraftForFetch({ ...probe, apiKeyEnv }, fetched);
@@ -4784,12 +4823,30 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
 
   const saveProviderKey = async (group: ProviderAccessGroup, apiKeyEnv: string, value: string) => {
     if (!apiKeyEnv) return;
+    const provider = group.providers[0];
+    if (!provider) return;
     cancelGroupFetch(group.id);
     setGroupFetchResult(group.id, null);
     setGroupModelDraft(group.id, null);
     await apply(async () => {
+      const diagnostic = await app.TestProviderConnectionWithKey({ ...provider, apiKeyEnv }, value);
+      if (diagnostic.status !== "ok") {
+        setGroupFetchResult(group.id, {
+          kind: "warn",
+          text: t("settings.providerConnectionFailed", { code: diagnostic.code, message: diagnostic.message }),
+        });
+        return;
+      }
       const warning = await app.SetProviderKey(apiKeyEnv, value);
       invalidateProviderCacheByAPIKeyEnv(apiKeyEnv);
+      setGroupFetchResult(group.id, {
+        kind: "ok",
+        text: t("settings.providerConnectionSucceeded", {
+          model: diagnostic.model,
+          firstTokenMs: diagnostic.firstTokenMs ?? 0,
+          latencyMs: diagnostic.latencyMs ?? 0,
+        }),
+      });
       return warning;
     });
   };
@@ -4801,15 +4858,6 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
       await app.ClearProviderKey(apiKeyEnv);
       invalidateProviderCacheByAPIKeyEnv(apiKeyEnv);
     });
-  };
-
-  const saveProvider = async (provider: ProviderView, key: string) => {
-    if (key) {
-      const warning = await app.SaveProviderWithKey(provider, key);
-      invalidateProviderCacheByAPIKeyEnv(provider.apiKeyEnv);
-      return warning;
-    }
-    await app.SaveProvider(provider);
   };
 
   const saveModelDraft = async (group: ProviderAccessGroup) => {
@@ -4847,7 +4895,42 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
         </button>
       }
     >
-      <div className="provider-access-grid">
+      <div className="provider-workbench">
+        <aside className="provider-workbench__rail" aria-label={t("settings.providerAccess")}>
+          <div className="provider-workbench__rail-head">
+            <div>
+              <strong>{t("settings.providerAccess")}</strong>
+            </div>
+            <span className="provider-workbench__count">{groups.length}</span>
+          </div>
+          <div className="provider-workbench__provider-list">
+            {groups.map((group) => {
+              const active = group.id === selectedGroup?.id;
+              const groupDefault = group.providers.some((p) => p.name === defaultProvider);
+              return (
+                <button
+                  type="button"
+                  key={group.id}
+                  className={`provider-workbench__provider${active ? " provider-workbench__provider--active" : ""}`}
+                  aria-pressed={active}
+                  onClick={() => { setSelectedGroupID(group.id); setEditing(null); }}
+                >
+                  <span className={`provider-workbench__status provider-workbench__status--${group.configured ? "ready" : "missing"}`} />
+                  <span className="provider-workbench__provider-copy">
+                    <strong>{group.label}</strong>
+                    <small>{group.models.length} {t("settings.enabledModels")}</small>
+                  </span>
+                  {groupDefault && <span className="provider-workbench__active-mark">{t("settings.defaultModel")}</span>}
+                </button>
+              );
+            })}
+            {groups.length === 0 && <div className="provider-workbench__empty">{t("settings.providerAccessEmptyHint")}</div>}
+          </div>
+          <button type="button" className="provider-workbench__add" disabled={busy || adding !== null} onClick={() => setAdding("official")}>
+            <Plus size={15} aria-hidden="true" />{t("settings.addProviderAccess")}
+          </button>
+        </aside>
+        <main className="provider-workbench__detail">
         {groups.length === 0 && adding === null && (
           <div className="provider-empty">
             <strong>{t("settings.providerAccessEmptyTitle")}</strong>
@@ -4879,61 +4962,87 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
               setAdding(null);
             }}
             onResetPreset={(id) => apply(() => app.ResetProviderPresetAccess(id)).then(() => setAdding(null))}
-            onAddCustom={(pv, key) => apply(() => saveProvider(pv, key ?? "")).then(() => setAdding(null))}
+            onAddCustom={(pv, key) => {
+              let result: ProviderSaveResult | undefined;
+              return apply(async () => {
+                result = await validateAndSaveProviderDraft(
+                  pv,
+                  key,
+                  t("settings.providerSavedWithoutValidation"),
+                );
+                if (result.saved) invalidateProviderCacheByAPIKeyEnv(pv.apiKeyEnv);
+                return result.warning ?? "";
+              }).then(() => {
+                if (result?.saved) setAdding(null);
+                return result;
+              });
+            }}
           />
         )}
-        {adding === null && groups.map((group) => (
+        {adding === null && selectedGroup && (
           <ProviderAccessCard
-            key={group.id}
-            group={group}
+            key={selectedGroup.id}
+            group={selectedGroup}
             busy={busy}
-            fetching={fetchingProviders.has(group.id)}
-            fetchResult={fetchResults[group.id]}
-            modelDraft={modelDrafts[group.id]}
+            fetching={fetchingProviders.has(selectedGroup.id)}
+            fetchResult={fetchResults[selectedGroup.id]}
+            modelDraft={modelDrafts[selectedGroup.id]}
             defaultProvider={defaultProvider}
             editing={editing}
             kinds={s.providerKinds}
             onEdit={setEditing}
             onCancelEdit={() => setEditing(null)}
             onSave={(pv, key) => {
-              cancelGroupFetch(group.id);
-              return apply(() => saveProvider(pv, key ?? "")).then(() => {
-                setEditing(null);
-                setGroupModelDraft(group.id, null);
+              cancelGroupFetch(selectedGroup.id);
+              let result: Awaited<ReturnType<typeof app.ValidateAndSaveProvider>> | undefined;
+              return apply(async () => {
+                result = await validateAndSaveProviderDraft(
+                  pv,
+                  key,
+                  t("settings.providerSavedWithoutValidation"),
+                );
+                if (result.saved) invalidateProviderCacheByAPIKeyEnv(pv.apiKeyEnv);
+                return result.warning ?? "";
+              }).then(() => {
+                if (result?.saved) {
+                  setEditing(null);
+                  setGroupModelDraft(selectedGroup.id, null);
+                }
+                return result;
               });
             }}
-            onRefresh={(provider) => void refreshModels(group, provider)}
-            onToggleDraftModel={(model) => updateModelDraftSelection(group.id, (draft) => (
+            onRefresh={(provider) => void refreshModels(selectedGroup, provider)}
+            onToggleDraftModel={(model) => updateModelDraftSelection(selectedGroup.id, (draft) => (
               draft.selected.includes(model)
                 ? draft.selected.filter((candidate) => candidate !== model)
                 : [...draft.selected, model]
             ))}
-            onToggleDraftVision={(model) => toggleModelDraftVision(group.id, model)}
-            onSelectAllDraftModels={() => updateModelDraftSelection(group.id, (draft) => draft.candidates)}
-            onClearDraftModels={() => updateModelDraftSelection(group.id, () => [])}
+            onToggleDraftVision={(model) => toggleModelDraftVision(selectedGroup.id, model)}
+            onSelectAllDraftModels={() => updateModelDraftSelection(selectedGroup.id, (draft) => draft.candidates)}
+            onClearDraftModels={() => updateModelDraftSelection(selectedGroup.id, () => [])}
             onCancelDraftModels={() => {
-              setGroupModelDraft(group.id, null);
-              setGroupFetchResult(group.id, null);
+              setGroupModelDraft(selectedGroup.id, null);
+              setGroupFetchResult(selectedGroup.id, null);
             }}
-            onSaveDraftModels={() => void saveModelDraft(group)}
+            onSaveDraftModels={() => void saveModelDraft(selectedGroup)}
             onToggleWebSearch={(enabled) => {
-              const providerNames = group.providers.map((provider) => provider.name);
+              const providerNames = selectedGroup.providers.map((provider) => provider.name);
               if (providerNames.length === 0) return;
               void apply(() => app.SetProviderWebSearch(providerNames, enabled));
             }}
             onUpgradeRecommended={(name) => {
-              cancelGroupFetch(group.id);
+              cancelGroupFetch(selectedGroup.id);
               return apply(() => app.UpgradeDeepSeekProviderAccess(name)).then((upgraded) => {
                 if (upgraded) {
                   setEditing(null);
-                  setGroupModelDraft(group.id, null);
+                  setGroupModelDraft(selectedGroup.id, null);
                 }
               });
             }}
-            onSaveEditorKey={(env, value) => group.builtIn ? saveProviderKey(group, env, value) : saveKeyEnvAndAutoRefresh(group, env, value)}
-            onClearEditorKey={(env) => clearProviderKey(group, env)}
+            onSaveEditorKey={(env, value) => selectedGroup.builtIn ? saveProviderKey(selectedGroup, env, value) : saveKeyEnvAndAutoRefresh(selectedGroup, env, value)}
+            onClearEditorKey={(env) => clearProviderKey(selectedGroup, env)}
             onDelete={(providers) => {
-              cancelGroupFetch(group.id);
+              cancelGroupFetch(selectedGroup.id);
               const providerNames = providers.map(({ name }) => name);
               return apply(() => app.RemoveProviderAccesses(providerNames)).then(() => {
                 if (revealedProvider && providerNames.includes(revealedProvider)) {
@@ -4943,9 +5052,30 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
               });
             }}
           />
-        ))}
+        )}
+        </main>
+        <aside className="provider-workbench__routes">
+          <div className="provider-workbench__routes-head">
+            <strong>{t("settings.botAdvancedRuntime")}</strong>
+          </div>
+          <ProviderRouteSummary label={t("settings.defaultModel")} refValue={s.defaultModel} />
+          <ProviderRouteSummary label={t("settings.plannerModel")} refValue={s.plannerModel || s.defaultModel} />
+          <ProviderRouteSummary label={t("settings.subagentModel")} refValue={s.subagentModel || s.defaultModel} />
+        </aside>
       </div>
     </SettingsSection>
+  );
+}
+
+function ProviderRouteSummary({ label, refValue }: { label: string; refValue: string }) {
+  const [provider, ...rest] = refValue.split("/");
+  const model = rest.join("/") || "—";
+  return (
+    <div className="provider-workbench__route">
+      <span>{label}</span>
+      <strong>{provider || "—"}</strong>
+      <code>{model}</code>
+    </div>
   );
 }
 
@@ -5153,7 +5283,7 @@ export function AddProviderPanel({
   onAddPreset: (id: string, key: string) => Promise<void>;
   onViewPresetConflict: (providerName: string) => void;
   onResetPreset: (id: string) => Promise<void>;
-  onAddCustom: (p: ProviderView, key?: string) => void | Promise<void>;
+  onAddCustom: (p: ProviderView, key?: string) => void | Promise<void | ProviderSaveResult>;
 }) {
   const t = useT();
   const templateChoices = useMemo<ProviderTemplateChoice[]>(() => [
@@ -5370,7 +5500,7 @@ export function ProviderAccessCard({
   kinds: string[];
   onEdit: (name: string) => void;
   onCancelEdit: () => void;
-  onSave: (p: ProviderView, key?: string) => void | Promise<void>;
+  onSave: (p: ProviderView, key?: string) => void | Promise<void | ProviderSaveResult>;
   onRefresh: (p: ProviderView) => void;
   onToggleDraftModel: (model: string) => void;
   onToggleDraftVision: (model: string) => void;
@@ -6203,7 +6333,7 @@ export function ProviderEditor({
   kinds: string[];
   busy: boolean;
   onCancel: () => void;
-  onSave: (p: ProviderView, key?: string) => void | Promise<void>;
+  onSave: (p: ProviderView, key?: string) => void | Promise<void | ProviderSaveResult>;
   onSaveKey?: (apiKeyEnv: string, value: string) => Promise<void>;
   onClearKey?: (apiKeyEnv: string) => Promise<void>;
 }) {
@@ -6326,11 +6456,7 @@ export function ProviderEditor({
     try {
       const effectiveApiKeyEnv = providerApiKeyEnvForSave(name, apiKeyEnv, keyDraft);
       if (!apiKeyEnv.trim()) setApiKeyEnv(effectiveApiKeyEnv);
-      if (keyDraft.trim()) {
-        await app.SaveProviderKey(effectiveApiKeyEnv, keyDraft.trim());
-        invalidateProviderCacheByAPIKeyEnv(effectiveApiKeyEnv);
-      }
-      const fetched = await cachedFetchProviderModels((provider) => app.FetchProviderModels(provider), {
+      const provider: ProviderView = {
         name: name.trim() || t("settings.newProviderDraftName"),
         builtIn: initial?.builtIn ?? false,
         added: initial?.added ?? true,
@@ -6357,7 +6483,10 @@ export function ProviderEditor({
         supportedEfforts: cleanedSupportedEfforts,
         defaultEffort: cleanDefaultEffort,
         modelOverrides: mergeProviderModelContextWindows(initial?.modelOverrides, parseProviderListInput(models), modelContextWindows),
-      }, true);
+      };
+      const fetched = keyDraft.trim()
+        ? await app.FetchProviderModelsWithKey(provider, keyDraft.trim())
+        : await cachedFetchProviderModels((candidate) => app.FetchProviderModels(candidate), provider, true);
       if (fetched.length === 0) {
         setFetchFallback(t("settings.fetchModelsManualFallbackEmpty"));
         return;
@@ -6369,7 +6498,6 @@ export function ProviderEditor({
         return uniqueStrings([...existing, ...inferredVisionModels(fetched)]).filter((model) => fetched.includes(model)).join(", ");
       });
       setVisionModelsConfigured(true);
-      if (keyDraft.trim()) setKeyDraft("");
       setFetchStatus(t("settings.fetchModelsSuccess", { n: fetched.length }));
     } catch (e) {
       setFetchFallback(providerModelFetchFallbackMessage(e, t));
@@ -6385,11 +6513,7 @@ export function ProviderEditor({
     setFetchFallback(null);
     try {
       const effectiveApiKeyEnv = providerApiKeyEnvForSave(name, apiKeyEnv, keyDraft);
-      if (keyDraft.trim()) {
-        await app.SaveProviderKey(effectiveApiKeyEnv, keyDraft.trim());
-        invalidateProviderCacheByAPIKeyEnv(effectiveApiKeyEnv);
-      }
-      const result = await app.TestProviderConnection({
+      const provider: ProviderView = {
         name: name.trim() || t("settings.newProviderDraftName"), builtIn: initial?.builtIn ?? false,
         added: initial?.added ?? true, kind: effectiveKind, baseUrl: effectiveBaseUrl,
         chatUrl: effectiveLegacyChatUrl, requestUrl: effectiveRequestUrl, models: modelNames,
@@ -6401,9 +6525,11 @@ export function ProviderEditor({
         webSearch: effectiveServerWebSearchCapability && webSearch, serverWebSearchCapability: effectiveServerWebSearchCapability,
         supportedEfforts: cleanedSupportedEfforts, defaultEffort: cleanDefaultEffort,
         modelOverrides: mergeProviderModelContextWindows(initial?.modelOverrides, modelNames, modelContextWindows),
-      });
+      };
+      const result = keyDraft.trim()
+        ? await app.TestProviderConnectionWithKey(provider, keyDraft.trim())
+        : await app.TestProviderConnection(provider);
       setConnectionDiagnostic(result);
-      if (keyDraft.trim() && result.status === "ok") setKeyDraft("");
     } catch (error) {
       setConnectionDiagnostic({ status: "error", code: "request_failed", message: String((error as Error)?.message ?? error), model: effectivePrimaryModel });
     } finally {
@@ -6453,7 +6579,14 @@ export function ProviderEditor({
       modelOverrides: mergeProviderModelContextWindows(initial?.modelOverrides, ms, modelContextWindows),
     };
     try {
-      await onSave(provider, keyDraft.trim() || undefined);
+      const result = await onSave(provider, keyDraft.trim() || undefined);
+      if (result && !result.saved) {
+        setConnectionDiagnostic(result.diagnostic);
+        return;
+      }
+      if (result?.saved) {
+        setConnectionDiagnostic(result.diagnostic);
+      }
     } catch (e) {
       setFetchFallback(String((e as Error)?.message ?? e));
     }

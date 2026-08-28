@@ -94,6 +94,11 @@ import type {
   PluginView,
   ProjectNode,
   ProjectAnalysisJobView,
+  CreationImageRequest,
+  CreationImageStatusView,
+  CreationImageView,
+  PresentationDraftRequest,
+  PresentationOutline,
   ProjectTreeOrganizationBindings,
   RecoveryLineageView,
   RecoveryCleanupRequest,
@@ -103,6 +108,7 @@ import type {
   PromptHistoryResult,
   ProviderModelCatalogUpdate,
   ProviderConnectionDiagnostic,
+  ProviderSaveResult,
   ProviderPresetView,
   ProviderView,
   QuestionAnswer,
@@ -349,6 +355,11 @@ export interface AppBindings extends SessionCatalogBindings, ProjectTreeOrganiza
   StartProjectAnalysis(root: string): Promise<ProjectAnalysisJobView>;
   ProjectAnalysisJob(id: string): Promise<ProjectAnalysisJobView>;
   CancelProjectAnalysis(id: string): Promise<void>;
+  CreationImageStatus(): Promise<CreationImageStatusView>;
+  GenerateCreationImage(input: CreationImageRequest): Promise<CreationImageView>;
+  RecentCreationImages(limit: number): Promise<CreationImageView[]>;
+  CreationImagePreview(id: string): Promise<string>;
+  DraftPresentation(input: PresentationDraftRequest): Promise<PresentationOutline>;
   SwitchWorkspace(path: string): Promise<string>;
   RemoveWorkspace(path: string): Promise<void>;
   ContextUsage(): Promise<ContextInfo>;
@@ -541,7 +552,10 @@ export interface AppBindings extends SessionCatalogBindings, ProjectTreeOrganiza
   AddProviderPresetAccess(id: string, key: string): Promise<string>;
   ResetProviderPresetAccess(id: string): Promise<void>;
   FetchProviderModels(p: ProviderView): Promise<string[]>;
+  FetchProviderModelsWithKey(p: ProviderView, key: string): Promise<string[]>;
   TestProviderConnection(p: ProviderView): Promise<ProviderConnectionDiagnostic>;
+  TestProviderConnectionWithKey(p: ProviderView, key: string): Promise<ProviderConnectionDiagnostic>;
+  ValidateAndSaveProvider(p: ProviderView, key: string): Promise<ProviderSaveResult>;
   FetchAllProviderModels(providers: ProviderView[]): Promise<Record<string, string[]>>;
   DeleteProvider(name: string): Promise<void>;
   RemoveProviderAccess(name: string): Promise<void>;
@@ -3500,6 +3514,44 @@ function makeMockApp(): AppBindings {
     async CancelProjectAnalysis() {
       if (mockAnalysisJob) mockAnalysisJob.state = "cancelled";
     },
+    async CreationImageStatus() {
+      return { configured: true, model: "gpt-image-2", endpoint: "https://api.tu-zi.com/coding/images/generations" };
+    },
+    async GenerateCreationImage(input: CreationImageRequest) {
+      return {
+        id: `mock-image-${Date.now()}`,
+        path: "/mock/creations/image.png",
+        filename: "reasonix-preview.png",
+        prompt: input.prompt,
+        size: input.size,
+        quality: input.quality,
+        background: input.background,
+        mime: "image/png",
+        bytes: 2048,
+        createdAt: Date.now(),
+        preview: mockPreviewImageDataURL,
+      };
+    },
+    async RecentCreationImages() {
+      return [];
+    },
+    async CreationImagePreview() {
+      return mockPreviewImageDataURL;
+    },
+    async DraftPresentation(input: PresentationDraftRequest) {
+      return {
+        title: input.topic || "超级工作台产品方案",
+        subtitle: input.audience ? `面向 ${input.audience}` : "从想法到交付的一体化工作流",
+        theme: "graphite",
+        slides: [
+          { title: input.topic || "超级工作台产品方案", subtitle: "从想法到交付的一体化工作流", layout: "cover" },
+          { title: "现状与目标", bullets: ["核心能力入口分散", "创作流程缺少统一承载", "建立可持续扩展的桌面工作台"], layout: "content" },
+          { title: "能力架构", bullets: ["项目深度分析", "AI 图片创作", "智能 PPT 制作", "插件与 Skill 生态"], layout: "content" },
+          { title: "落地路径", bullets: ["统一一级导航", "复用安全凭据与模型配置", "作品本地化保存", "持续增加模板和导出能力"], layout: "content" },
+          { title: "下一步", bullets: ["验证关键用户流程", "补充行业模板", "建立作品历史与复用机制"], layout: "summary" },
+        ],
+      };
+    },
     async SwitchWorkspace(path: string) {
       return mockSwitchWorkspace(path);
     },
@@ -3826,16 +3878,17 @@ function makeMockApp(): AppBindings {
         { id: "plugin-superpowers", kind: "plugin", name: "Superpowers", description: "Battle-tested software development workflow with planning, TDD, debugging, and review skills.", category: "programming", repository: "https://github.com/obra/superpowers", commit: "b36e0829c6d0140e93cfef2ca599b1b07d4a7797", license: "MIT", author: "obra", capabilities: ["skills", "commands"], risk: "medium", riskReasons: ["Installs a multi-skill plugin package"] },
         { id: "plugin-agents", kind: "plugin", name: "Agents", description: "Curated specialist agents and developer workflow plugins for daily engineering work.", category: "work", repository: "https://github.com/wshobson/agents", commit: "367cb6a4a182cf7e9b0a17c9429f7411ddd9cf35", license: "MIT", author: "wshobson", capabilities: ["skills", "agents", "commands"], risk: "medium", riskReasons: ["May add agents and command handlers"] },
         { id: "plugin-claude-community", kind: "plugin", name: "Claude Plugins Community", description: "Community-maintained plugin collection with reusable productivity capabilities.", category: "work", repository: "https://github.com/anthropics/claude-plugins-community", commit: "24a5ecd5dd88e201e185e1174b7797a4e857dd67", license: "Apache-2.0", author: "Anthropic community", capabilities: ["plugins", "skills"], risk: "medium", riskReasons: ["Community package; review capabilities before approval"] },
-        { id: "skill-video-shotcraft", kind: "skill", name: "Video Shotcraft", description: "Plan and execute polished video shot lists, coverage, and production workflows.", category: "video", repository: "https://github.com/Vincentwei1021/video-shotcraft/tree/0d6f0b57f0d4d6700761644c07f7ef03c3e50234", commit: "0d6f0b57f0d4d6700761644c07f7ef03c3e50234", license: "Apache-2.0", author: "Vincentwei1021", capabilities: ["skill"], risk: "low" },
-        { id: "skill-video-kit", kind: "skill", name: "Claude Video Kit", description: "A structured assistant workflow for scripting, editing and delivering video projects.", category: "video", repository: "https://github.com/runesleo/claude-video-kit/tree/f09790c6e90e610b9dbdec0d1983bd5abeecd0bf", commit: "f09790c6e90e610b9dbdec0d1983bd5abeecd0bf", license: "MIT", author: "runesleo", capabilities: ["skill"], risk: "low" },
-        { id: "skill-remotion-motion", kind: "skill", name: "Remotion Motion Graphics", description: "Motion graphics planning and Remotion production guidance for code-driven video.", category: "video", repository: "https://github.com/haidrrrry/claude-remotion-skill/tree/1dcbe5e3fc6cf970bd10d3cc05f0a8a5d19d0383", commit: "1dcbe5e3fc6cf970bd10d3cc05f0a8a5d19d0383", license: "MIT", author: "haidrrrry", capabilities: ["skill"], risk: "low" },
+        { id: "skill-video-shotcraft", kind: "skill", name: "Video Shotcraft", description: "Plan and execute polished video shot lists, coverage, and production workflows.", category: "video", repository: "https://github.com/Vincentwei1021/video-shotcraft", commit: "0d6f0b57f0d4d6700761644c07f7ef03c3e50234", license: "Apache-2.0", author: "Vincentwei1021", capabilities: ["skill"], risk: "low" },
+        { id: "skill-video-kit", kind: "skill", name: "Claude Video Kit", description: "A structured assistant workflow for scripting, editing and delivering video projects.", category: "video", repository: "https://github.com/runesleo/claude-video-kit", commit: "f09790c6e90e610b9dbdec0d1983bd5abeecd0bf", license: "MIT", author: "runesleo", capabilities: ["skill"], risk: "low" },
+        { id: "skill-remotion-motion", kind: "skill", name: "Remotion Motion Graphics", description: "Motion graphics planning and Remotion production guidance for code-driven video.", category: "video", repository: "https://github.com/haidrrrry/claude-remotion-skill", commit: "1dcbe5e3fc6cf970bd10d3cc05f0a8a5d19d0383", license: "MIT", author: "haidrrrry", capabilities: ["skill"], risk: "low" },
       ];
       const q = query.trim().toLowerCase();
       return { entries: entries.filter((e) => (kind === "all" || e.kind === kind) && (!q || `${e.name} ${e.description} ${e.category}`.toLowerCase().includes(q))), cached: true } as MarketplaceCatalogView;
     },
     async PlanMarketplaceInstall(id: string) {
       const c = await this.MarketplaceCatalog("all", ""); const e = c.entries.find((x) => x.id === id); if (!e) throw new Error("Marketplace item not found");
-      return JSON.stringify({ ok: true, status: "planned", planId: `mock-${id}`, kind: e.kind, actions: [{ kind: e.kind, action: e.kind === "plugin" ? "install_plugin_package" : "copy_skill", name: e.name, source: e.repository, commit: e.commit, riskLevel: e.risk, riskReasons: e.riskReasons, status: "planned" }] });
+      const source = e.kind === "skill" ? `${e.repository}/tree/${e.commit}` : e.repository;
+      return JSON.stringify({ ok: true, status: "planned", planId: `mock-${id}`, kind: e.kind, actions: [{ kind: e.kind, action: e.kind === "plugin" ? "install_plugin_package" : "copy_skill", name: e.name, source, commit: e.commit, riskLevel: e.risk, riskReasons: e.riskReasons, status: "planned" }] });
     },
     async InstallMarketplace(id: string, planId: string) {
       const c = await this.MarketplaceCatalog("all", ""); const e = c.entries.find((x) => x.id === id); if (!e) throw new Error("Marketplace item not found");
@@ -4737,12 +4790,25 @@ function makeMockApp(): AppBindings {
       if (p.baseUrl.includes("xiaomimimo")) return ["mimo-v2.5-pro", "mimo-v2.5"];
       return ["gpt-5", "gpt-5-mini", "qwen3-coder"];
     },
+    async FetchProviderModelsWithKey(p: ProviderView, key: string) {
+      return this.FetchProviderModels({ ...p, keySet: Boolean(key.trim()) || p.keySet });
+    },
     async TestProviderConnection(p: ProviderView) {
       await delay(350);
       const model = p.default || p.models[0] || "";
       return model
         ? { status: "ok", code: "connected", message: "chat completion succeeded", model, firstTokenMs: 180, latencyMs: 420 }
         : { status: "error", code: "model_required", message: "select at least one chat model", model: "", firstTokenMs: 0, latencyMs: 0 };
+    },
+    async TestProviderConnectionWithKey(p: ProviderView, key: string) {
+      return this.TestProviderConnection({ ...p, keySet: Boolean(key.trim()) || p.keySet });
+    },
+    async ValidateAndSaveProvider(p: ProviderView, key: string) {
+      const diagnostic = await this.TestProviderConnection(p);
+      if (diagnostic.status !== "ok") return { saved: false, diagnostic };
+      if (key.trim()) await this.SaveProviderWithKey(p, key);
+      else await this.SaveProvider(p);
+      return { saved: true, warning: "", diagnostic };
     },
     async FetchAllProviderModels(providers: ProviderView[]) {
       const out: Record<string, string[]> = {};
