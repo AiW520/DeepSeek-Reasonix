@@ -24,7 +24,10 @@ func verifyWindowsPortableTestCommand(t *testing.T, verify, portable string) *ex
 		if err != nil {
 			t.Fatal(err)
 		}
-		return exec.Command("wsl.exe", "-e", "bash", bashPathForTest(t, verifyAbs), bashPathForTest(t, portable))
+		if hasWSLForTest() {
+			return exec.Command("wsl.exe", "-e", "bash", bashPathForTest(t, verifyAbs), bashPathForTest(t, portable))
+		}
+		return exec.Command(`C:\Program Files\Git\bin\bash.exe`, bashPathForTest(t, verifyAbs), bashPathForTest(t, portable))
 	}
 	return exec.Command("bash", verify, portable)
 }

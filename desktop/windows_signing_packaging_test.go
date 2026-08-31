@@ -39,22 +39,39 @@ func bashPathForTest(t *testing.T, path string) string {
 	if runtime.GOOS != "windows" {
 		return path
 	}
-	out, err := exec.Command("wsl.exe", "-e", "wslpath", "-a", "-u", path).Output()
-	if err != nil {
-		t.Fatalf("convert Windows path for WSL bash: %v", err)
+	if _, err := exec.LookPath("wsl.exe"); err == nil {
+		out, pathErr := exec.Command("wsl.exe", "-e", "wslpath", "-a", "-u", path).Output()
+		if pathErr != nil {
+			t.Fatalf("convert Windows path for WSL bash: %v", pathErr)
+		}
+		return strings.TrimSpace(string(out))
 	}
-	return strings.TrimSpace(string(out))
+	// GitHub's Windows runners do not include WSL. Git Bash accepts this
+	// canonical /c/path form and is sufficient for the shell packaging tests.
+	path = filepath.ToSlash(path)
+	if len(path) >= 2 && path[1] == ':' {
+		path = "/" + strings.ToLower(string(path[0])) + path[2:]
+	}
+	return path
 }
 
 func packageWindowsTestCommand(t *testing.T, payload string) *exec.Cmd {
 	t.Helper()
 	script := "REASONIX_REQUIRE_PAYLOAD_MANIFEST=1 bash ../scripts/package-windows-desktop.sh amd64 \"$1\""
 	args := []string{"-lc", script, "package-test", bashPathForTest(t, payload)}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" && hasWSLForTest() {
 		args = append([]string{"-e", "bash"}, args...)
 		return exec.Command("wsl.exe", args...)
 	}
+	if runtime.GOOS == "windows" {
+		return exec.Command(`C:\Program Files\Git\bin\bash.exe`, args...)
+	}
 	return exec.Command("bash", args...)
+}
+
+func hasWSLForTest() bool {
+	_, err := exec.LookPath("wsl.exe")
+	return err == nil
 }
 
 func parseSignPathConfiguration(t *testing.T, name string) signPathArtifactConfiguration {
