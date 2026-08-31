@@ -521,7 +521,7 @@ func readNovelDOCX(path string) (string, error) {
 		var out strings.Builder
 		for {
 			token, tokenErr := decoder.Token()
-			if tokenErr == io.EOF {
+			if errors.Is(tokenErr, io.EOF) {
 				break
 			}
 			if tokenErr != nil {

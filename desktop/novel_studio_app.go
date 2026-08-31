@@ -653,7 +653,7 @@ func buildNovelDOCX(project NovelProject) ([]byte, error) {
 	sort.SliceStable(chapters, func(i, j int) bool { return chapters[i].Order < chapters[j].Order })
 	for _, chapter := range chapters {
 		paragraph(chapter.Title, "Heading1")
-		for _, line := range strings.Split(strings.ReplaceAll(chapter.Content, "\r\n", "\n"), "\n") {
+		for line := range strings.SplitSeq(strings.ReplaceAll(chapter.Content, "\r\n", "\n"), "\n") {
 			if strings.TrimSpace(line) != "" {
 				paragraph(line, "Normal")
 			}
