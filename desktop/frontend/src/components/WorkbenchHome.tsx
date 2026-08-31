@@ -1,4 +1,4 @@
-import { Blocks, BrainCircuit, Image, Presentation, Settings2, Sparkles, WandSparkles } from "lucide-react";
+import { Blocks, BookOpen, BrainCircuit, Image, Presentation, Settings2, Sparkles, WandSparkles } from "lucide-react";
 import type { WorkbenchModule } from "../lib/workbench";
 import "./WorkbenchHome.css";
 import "./WorkbenchHomeOverrides.css";
@@ -9,6 +9,7 @@ const MODULES: Array<{ id: WorkbenchModule; title: string; eyebrow: string; desc
   { id: "ppt", title: "PPT 智能制作", eyebrow: "PRESENTATION", description: "从主题生成演示结构，逐页编辑内容并导出标准 PPTX 文件。", meta: "可编辑大纲", icon: Presentation, tone: "gold" },
   { id: "plugins", title: "插件广场", eyebrow: "EXTENSIONS", description: "安装工作、编程和视频插件，先做权限与运行时安全预检。", meta: "确认后安装", icon: Blocks, tone: "blue" },
   { id: "skills", title: "Skill 广场", eyebrow: "SKILLS", description: "扩展 AI 的专业工作流与工具能力，使用固定 GitHub 快照。", meta: "精选开源能力", icon: Sparkles, tone: "green" },
+  { id: "novel", title: "AI 小说工作室", eyebrow: "NOVEL STUDIO", description: "从世界观、人物到章节成稿，主 AI 与两位审查 AI 协作创作。", meta: "本地项目 · 可导出", icon: BookOpen, tone: "violet" },
 ];
 
 export function WorkbenchHome({ onOpenModule, onOpenModelSettings }: { onOpenModule: (module: WorkbenchModule) => void; onOpenModelSettings?: () => void }) {

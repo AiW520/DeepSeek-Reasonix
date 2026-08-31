@@ -170,6 +170,12 @@ type App struct {
 	projectAnalysisMu   sync.RWMutex
 	projectAnalysisJobs map[string]*projectAnalysisJob
 
+	// novelJobs owns durable, cancellable long-form writing jobs. Job snapshots
+	// are persisted per novel; this map only holds process-local cancellation.
+	novelJobsMu       sync.Mutex
+	novelJobs         map[string]*novelJobRuntime
+	novelRecoveryOnce sync.Once
+
 	// mu protects the tab map, tabOrder, activeTabID, and per-tab fields that are read
 	// from bound methods. All bound methods that touch a controller use activeCtrl().
 	mu          sync.RWMutex
@@ -433,6 +439,7 @@ func NewApp() *App {
 		mediaTokens:          newMediaTokenStore(),
 		botInstalls:          map[string]*botInstallSession{},
 		botRuntime:           newDesktopBotRuntime(),
+		novelJobs:            map[string]*novelJobRuntime{},
 		remoteWindows:        newRemoteWindowRegistry(),
 		remoteWindowOwnerID:  newRemoteWindowOwnerID(),
 	}
@@ -505,6 +512,10 @@ func (a *App) startup(ctx context.Context) {
 	a.tabsRestored = make(chan struct{})
 	a.mu.Unlock()
 	go a.restoreOrBuildTabs()
+	a.goSafe("recoverNovelAutoWriteJobs", func() {
+		<-a.tabsRestoredSignal()
+		a.recoverNovelAutoWriteJobs()
+	})
 	a.registerHistoryIndexEvents()
 	a.startSessionCatalog(false)
 	a.goSafe("refreshBotRuntime", a.refreshBotRuntime)
@@ -868,6 +879,7 @@ func (a *App) shutdown(context.Context) {
 	// Freeze publication, then cancel off-barrier history, catalog, and plugin
 	// work so normal quit never waits for background I/O.
 	a.shuttingDown.Store(true)
+	a.cancelNovelAutoWriteJobs()
 	a.cancelAllTabBuilds()
 	a.stopSessionCatalog(250 * time.Millisecond)
 	completeDesktopShutdown(a.lifecycle.tracker, a.shutdownBody)

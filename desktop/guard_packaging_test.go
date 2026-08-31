@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -14,6 +15,18 @@ func writePortableFixture(t *testing.T, dir, name, content string) {
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o755); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func verifyWindowsPortableTestCommand(t *testing.T, verify, portable string) *exec.Cmd {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		verifyAbs, err := filepath.Abs(verify)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return exec.Command("wsl.exe", "-e", "bash", bashPathForTest(t, verifyAbs), bashPathForTest(t, portable))
+	}
+	return exec.Command("bash", verify, portable)
 }
 
 func TestVerifyWindowsPortableVersionedLayout(t *testing.T) {
@@ -38,7 +51,7 @@ func TestVerifyWindowsPortableVersionedLayout(t *testing.T) {
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command("bash", verify, good).CombinedOutput(); err != nil {
+	if out, err := verifyWindowsPortableTestCommand(t, verify, good).CombinedOutput(); err != nil {
 		t.Fatalf("valid versioned portable failed: %v\n%s", err, out)
 	}
 
@@ -54,7 +67,7 @@ func TestVerifyWindowsPortableVersionedLayout(t *testing.T) {
 	} {
 		writePortableFixture(t, flat, name, name)
 	}
-	if out, err := exec.Command("bash", verify, flat).CombinedOutput(); err == nil {
+	if out, err := verifyWindowsPortableTestCommand(t, verify, flat).CombinedOutput(); err == nil {
 		t.Fatalf("flat portable with guard should fail, output=%s", out)
 	}
 }

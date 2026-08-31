@@ -8,6 +8,9 @@ import { fileURLToPath } from "node:url";
 
 const devPort = Number(process.env.REASONIX_DESKTOP_VITE_PORT || "5173");
 const configDir = dirname(fileURLToPath(import.meta.url));
+const requireFromConfig = createRequire(import.meta.url);
+const reactEntry = requireFromConfig.resolve("react");
+const reactDomEntry = requireFromConfig.resolve("react-dom");
 
 // Stamps the build commit into the bundle so a minified crash stack can be mapped
 // back to the sourcemap of the exact build. Falls back to "dev" off a git checkout.
@@ -109,7 +112,17 @@ export default defineConfig({
   base: "./",
   define: { __BUILD_COMMIT__: JSON.stringify(commit), __BUILD_CHANNEL__: JSON.stringify(channel) },
   resolve: {
+    // Keep React as a single runtime in both the initial graph and lazy-loaded
+    // workspaces. Without dedupe, an optimize-deps refresh can leave an open
+    // WebView with React and react-dom URLs from different browser hashes,
+    // which makes every hook fail until a hard reload.
+    dedupe: ["react", "react-dom"],
     alias: {
+      // Resolve both packages through the frontend's canonical pnpm entry. This
+      // closes the remaining symlink/working-directory path that can otherwise
+      // produce two React module identities in a long-lived dev WebView.
+      "react$": reactEntry,
+      "react-dom$": reactDomEntry,
       // decode-named-character-reference (micromark/remark dependency) ships a
       // browser condition (index.dom.js) that calls document.createElement at
       // module scope. That explodes inside markdown.worker.ts (WorkerGlobalScope
@@ -123,6 +136,12 @@ export default defineConfig({
       // WorkerGlobalScope lacks. Pin the isomorphic default (parse5) entry.
       "hast-util-from-html-isomorphic": createRequire(import.meta.url).resolve("hast-util-from-html-isomorphic"),
     },
+  },
+  optimizeDeps: {
+    force: true,
+    // Prebundle the complete React runtime before Vite serves index.html. This
+    // prevents lazy chunks from triggering a mid-session dependency re-bundle.
+    include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
   },
   build: {
     outDir: "dist",

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"reasonix/internal/config"
+	"reasonix/internal/proc"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -364,7 +365,7 @@ func (a *App) CloneGitHubRepository(owner, repo, parentDir string) (GitHubCloneR
 	}
 	ctx, cancel := context.WithTimeout(a.bootContext(), 20*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, gitPath, "clone", "--origin", "origin", "--", remoteURL, target)
+	cmd := proc.CommandContext(ctx, gitPath, "clone", "--origin", "origin", "--", remoteURL, target)
 	cmd.Env = os.Environ()
 	redactToken := ""
 	if token, tokenErr := a.githubGetCredential(); tokenErr == nil && token != "" {

@@ -1696,6 +1696,95 @@ export interface PresentationOutline {
   slides: PresentationSlide[];
 }
 
+export interface NovelWorldSetting {
+  era: string;
+  locations: string;
+  rules: string;
+  themes: string;
+}
+
+export interface NovelCharacter {
+  id: string;
+  name: string;
+  role: string;
+  traits: string;
+  arc: string;
+  notes: string;
+}
+
+export interface NovelOutline {
+  id: string;
+  title: string;
+  summary: string;
+}
+
+export interface NovelChapter {
+  id: string;
+  title: string;
+  outline: string;
+  content: string;
+  summary: string;
+  status: "draft" | "review" | "done";
+  order: number;
+  wordCount: number;
+  updatedAt: number;
+}
+
+export interface NovelProjectSummary {
+  id: string;
+  title: string;
+  genre: string;
+  chapterCount: number;
+  wordCount: number;
+  updatedAt: number;
+}
+
+export interface NovelProject {
+  id: string;
+  title: string;
+  genre: string;
+  premise: string;
+  tone: string;
+  targetWords: number;
+  world: NovelWorldSetting;
+  characters: NovelCharacter[];
+  outlines: NovelOutline[];
+  chapters: NovelChapter[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NovelBible { filename: string; importedAt: number; characters: number; summary: string; style: string; }
+export interface NovelChapterMemory { chapterId: string; order: number; title: string; summary: string; }
+export interface NovelLongMemory { bible: NovelBible; globalSummary: string; timeline: string[]; characterStates: Record<string, string>; facts: string[]; openThreads: string[]; constraints: string[]; chapters: NovelChapterMemory[]; updatedAt: number; }
+export interface NovelBibleImportResult { bible: NovelBible; memory: NovelLongMemory; }
+export interface NovelAutoWriteInput { projectId: string; targetChapters: number; targetWordsPerChapter: number; instruction?: string; }
+export type NovelAutoWriteStatus = "queued" | "running" | "paused" | "stopped" | "completed" | "failed" | string;
+export interface NovelAutoWriteJob { id: string; projectId: string; status: NovelAutoWriteStatus; phase: string; targetChapters: number; completedChapters: number; targetWordsPerChapter: number; currentChapterTitle: string; instruction: string; lastError?: string; lastIssues?: NovelReviewIssue[]; createdAt: number; updatedAt: number; }
+
+export interface NovelProjectInput {
+  title: string;
+  genre: string;
+  premise: string;
+  tone: string;
+  targetWords: number;
+}
+
+export interface NovelVersion {
+  id: string;
+  chapterId: string;
+  label: string;
+  content: string;
+  createdAt: number;
+  wordCount: number;
+}
+
+export type NovelAIAction = "outline" | "draft" | "continue" | "expand" | "rewrite" | "polish" | "review-live" | "review-final";
+export interface NovelAIRequest { projectId: string; chapterId?: string; action: NovelAIAction; instruction?: string; }
+export interface NovelReviewIssue { severity: "info" | "warning" | "critical"; category: string; title: string; detail: string; suggestion: string; }
+export interface NovelAIResult { content?: string; summary?: string; outlines?: NovelOutline[]; issues?: NovelReviewIssue[]; }
+export interface NovelExportPayload { filename: string; mime: string; payload: string; base64Encoded: boolean; }
+
 export interface GitHubConnectionView { configured: boolean; connected: boolean; login?: string; name?: string; avatarUrl?: string; profileUrl?: string; scopes?: string; error?: string; }
 export interface GitHubDeviceFlowStart { deviceCode: string; userCode: string; verificationUri: string; expiresIn: number; interval: number; }
 export interface GitHubDeviceFlowPollResult { status: "pending" | "connected" | "access_denied" | "expired_token"; interval?: number; connection: GitHubConnectionView; }

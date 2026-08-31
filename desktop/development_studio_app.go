@@ -415,7 +415,7 @@ func (m *developmentStudioManager) runReview(ctx context.Context, tabID, role st
 
 func reviewSeverity(report, role string) (string, string) {
 	n := strings.ToLower(report)
-	if strings.Contains(n, "不通过") || strings.Contains(n, "block") || strings.Contains(n, "critical") {
+	if strings.Contains(n, "不通过") || strings.Contains(n, "阻断") || strings.Contains(n, "block") || strings.Contains(n, "critical") {
 		return "blocker", "failed"
 	}
 	if strings.Contains(n, "高风险") || strings.Contains(n, "high risk") || strings.Contains(n, "条件通过") {

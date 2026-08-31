@@ -26,6 +26,7 @@ import {
   AlarmClock,
   BarChart3,
   Brain,
+  BookOpen,
   Cpu,
   Palette,
   Puzzle,
@@ -57,6 +58,7 @@ const ProjectTree = lazy(() => import("./components/ProjectTree").then((module) 
 const ProjectLearningWorkspace = lazy(() => import("./components/ProjectLearningWorkspace").then((module) => ({ default: module.ProjectLearningWorkspace })));
 const CreationCenterWorkspace = lazy(() => import("./components/CreationCenterWorkspace").then((module) => ({ default: module.CreationCenterWorkspace })));
 const MarketplaceWorkspace = lazy(() => import("./components/MarketplaceWorkspace").then((module) => ({ default: module.MarketplaceWorkspace })));
+const NovelStudioWorkspace = lazy(() => import("./components/NovelStudioWorkspace").then((module) => ({ default: module.NovelStudioWorkspace })));
 const DevelopmentStudioPanel = lazy(() => import("./components/DevelopmentStudioPanel").then((module) => ({ default: module.DevelopmentStudioPanel })));
 /** Footer decision surface kinds. Runtime blockers are explicit recovery choices. */
 type DecisionSurfaceKind = MockDecisionSurfaceKind | "extension_form";
@@ -4343,6 +4345,9 @@ export default function App() {
                 <button className={`sidebar__quick-action${workbenchModule === "ppt" ? " sidebar__quick-action--active" : ""}`} type="button" onClick={() => setWorkbenchModule("ppt")}>
                   <FileText size={18} aria-hidden="true" /><span>PPT 智能制作</span>
                 </button>
+                <button className={`sidebar__quick-action${workbenchModule === "novel" ? " sidebar__quick-action--active" : ""}`} type="button" onClick={() => setWorkbenchModule("novel")}>
+                  <BookOpen size={18} aria-hidden="true" /><span>AI 小说工作室</span>
+                </button>
                 <button className={`sidebar__quick-action${workbenchModule === "plugins" ? " sidebar__quick-action--active" : ""}`} type="button" onClick={() => setWorkbenchModule("plugins")}>
                   <Puzzle size={18} aria-hidden="true" /><span>插件广场</span>
                 </button>
@@ -4605,6 +4610,7 @@ export default function App() {
                 {(workbenchModule === "plugins" || workbenchModule === "skills") && (
                   <MarketplaceWorkspace mode={workbenchModule} onModeChange={setWorkbenchModule} onClose={() => setWorkbenchModule(null)} />
                 )}
+                {workbenchModule === "novel" && <NovelStudioWorkspace onClose={() => setWorkbenchModule(null)} />}
               </Suspense>
             </div>
           )}

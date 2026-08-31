@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -31,6 +32,29 @@ func readTestFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func bashPathForTest(t *testing.T, path string) string {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		return path
+	}
+	out, err := exec.Command("wsl.exe", "-e", "wslpath", "-a", "-u", path).Output()
+	if err != nil {
+		t.Fatalf("convert Windows path for WSL bash: %v", err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func packageWindowsTestCommand(t *testing.T, payload string) *exec.Cmd {
+	t.Helper()
+	script := "REASONIX_REQUIRE_PAYLOAD_MANIFEST=1 bash ../scripts/package-windows-desktop.sh amd64 \"$1\""
+	args := []string{"-lc", script, "package-test", bashPathForTest(t, payload)}
+	if runtime.GOOS == "windows" {
+		args = append([]string{"-e", "bash"}, args...)
+		return exec.Command("wsl.exe", args...)
+	}
+	return exec.Command("bash", args...)
 }
 
 func parseSignPathConfiguration(t *testing.T, name string) signPathArtifactConfiguration {
@@ -264,8 +288,11 @@ func TestWindowsPackagerRejectsMissingOrPartialRequiredPayloadManifest(t *testin
 					t.Fatal(err)
 				}
 			}
-			cmd := exec.Command("bash", "../scripts/package-windows-desktop.sh", "amd64", payload)
-			cmd.Env = append(os.Environ(), "REASONIX_REQUIRE_PAYLOAD_MANIFEST=1")
+			// System32\bash.exe is the WSL launcher on Windows, so pass the
+			// required-manifest flag inside the distro instead of relying on the
+			// Windows process environment being inherited.
+			cmd := packageWindowsTestCommand(t, payload)
+			cmd.Env = os.Environ()
 			output, err := cmd.CombinedOutput()
 			if err == nil || !strings.Contains(string(output), tc.want) {
 				t.Fatalf("packager error = %v, output = %q, want %q", err, output, tc.want)

@@ -99,6 +99,18 @@ import type {
   CreationImageView,
   PresentationDraftRequest,
   PresentationOutline,
+  NovelProject,
+  NovelProjectInput,
+  NovelProjectSummary,
+  NovelChapter,
+  NovelVersion,
+  NovelAIRequest,
+  NovelAIResult,
+  NovelExportPayload,
+  NovelBibleImportResult,
+  NovelLongMemory,
+  NovelAutoWriteInput,
+  NovelAutoWriteJob,
   ProjectTreeOrganizationBindings,
   RecoveryLineageView,
   RecoveryCleanupRequest,
@@ -360,6 +372,23 @@ export interface AppBindings extends SessionCatalogBindings, ProjectTreeOrganiza
   RecentCreationImages(limit: number): Promise<CreationImageView[]>;
   CreationImagePreview(id: string): Promise<string>;
   DraftPresentation(input: PresentationDraftRequest): Promise<PresentationOutline>;
+  ListNovelProjects(): Promise<NovelProjectSummary[]>;
+  CreateNovelProject(input: NovelProjectInput): Promise<NovelProject>;
+  LoadNovelProject(id: string): Promise<NovelProject>;
+  SaveNovelProject(project: NovelProject): Promise<NovelProject>;
+  DeleteNovelProject(id: string): Promise<void>;
+  SaveNovelChapter(projectID: string, chapter: NovelChapter): Promise<NovelChapter>;
+  ListNovelVersions(projectID: string, chapterID: string): Promise<NovelVersion[]>;
+  RestoreNovelVersion(projectID: string, chapterID: string, versionID: string): Promise<NovelChapter>;
+  GenerateNovelContent(input: NovelAIRequest): Promise<NovelAIResult>;
+  ExportNovelProject(projectID: string, format: string): Promise<NovelExportPayload>;
+  ImportNovelBible(projectID: string): Promise<NovelBibleImportResult>;
+  NovelMemory(projectID: string): Promise<NovelLongMemory>;
+  StartNovelAutoWrite(input: NovelAutoWriteInput): Promise<NovelAutoWriteJob>;
+  ListNovelAutoWriteJobs(projectID: string): Promise<NovelAutoWriteJob[]>;
+  PauseNovelAutoWrite(jobID: string): Promise<void>;
+  ResumeNovelAutoWrite(jobID: string): Promise<void>;
+  StopNovelAutoWrite(jobID: string): Promise<void>;
   SwitchWorkspace(path: string): Promise<string>;
   RemoveWorkspace(path: string): Promise<void>;
   ContextUsage(): Promise<ContextInfo>;
@@ -1189,6 +1218,14 @@ export function mockToolApprovalModeAfterModeChange(current: string | undefined,
   if (modeHasAutoApproveTools(nextMode)) return "yolo";
   const currentMode = normalizeToolApprovalMode(current);
   return currentMode === "yolo" ? "ask" : currentMode;
+}
+
+/** Keep marketplace preview URLs canonical when a catalog already contains a revision path. */
+export function marketplaceInstallSource(repository: string, kind: string, commit: string): string {
+  let source = repository.trim().replace(/\/+$/, "");
+  const treeIndex = source.indexOf("/tree/");
+  if (treeIndex >= 0) source = source.slice(0, treeIndex);
+  return kind === "skill" ? `${source}/tree/${commit}` : source;
 }
 
 async function withMockTabScope<T>(tabId: string, fn: () => Promise<T>): Promise<T> {
@@ -3552,6 +3589,44 @@ function makeMockApp(): AppBindings {
         ],
       };
     },
+    async ListNovelProjects() {
+      return [{ id: "mock-novel-1", title: "雾港来信", genre: "悬疑科幻", chapterCount: 4, wordCount: 18240, updatedAt: Date.now() - 3600000 }];
+    },
+    async CreateNovelProject(input: NovelProjectInput) {
+      const now = Date.now();
+      return { id: `mock-novel-${now}`, title: input.title || "未命名小说", genre: input.genre || "现代", premise: input.premise || "", tone: input.tone || "克制、沉浸", targetWords: input.targetWords || 80000, world: { era: "近未来", locations: "雾港、旧城区", rules: "科技与记忆交易并存", themes: "选择与代价" }, characters: [], outlines: [], chapters: [{ id: "mock-chapter-1", title: "第一章 还未熄灭的灯", outline: "主角收到一封来自未来的信", content: "雨水沿着窗沿落下。林澈在凌晨三点收到了一封没有寄件人的信。", summary: "主角收到神秘来信", status: "draft", order: 1, wordCount: 29, updatedAt: now }], createdAt: now, updatedAt: now };
+    },
+    async LoadNovelProject() {
+      const now = Date.now();
+      return { id: "mock-novel-1", title: "雾港来信", genre: "悬疑科幻", premise: "一封来自未来的信，把失踪案与城市记忆连接起来。", tone: "冷峻、电影感", targetWords: 80000, world: { era: "近未来", locations: "雾港、旧城区", rules: "科技与记忆交易并存", themes: "选择与代价" }, characters: [{ id: "char-1", name: "林澈", role: "主角", traits: "敏锐、克制", arc: "从旁观者成为选择者", notes: "" }], outlines: [{ id: "outline-1", title: "第一章 还未熄灭的灯", summary: "主角收到神秘来信" }], chapters: [{ id: "mock-chapter-1", title: "第一章 还未熄灭的灯", outline: "主角收到一封来自未来的信", content: "雨水沿着窗沿落下。林澈在凌晨三点收到了一封没有寄件人的信。", summary: "主角收到神秘来信", status: "draft", order: 1, wordCount: 29, updatedAt: now }], createdAt: now - 86400000, updatedAt: now };
+    },
+    async SaveNovelProject(project: NovelProject) { return project; },
+    async DeleteNovelProject() {},
+    async SaveNovelChapter(_projectID: string, chapter: NovelChapter) { return { ...chapter, id: chapter.id || `mock-chapter-${Date.now()}`, wordCount: chapter.content.length, updatedAt: Date.now() }; },
+    async ListNovelVersions() { return []; },
+    async RestoreNovelVersion(_projectID: string, _chapterID: string, _versionID: string) { throw new Error("浏览器预览没有可恢复的版本"); },
+    async GenerateNovelContent(input: NovelAIRequest) {
+      if (input.action === "outline") return { summary: "三幕式悬疑结构", outlines: [{ id: "outline-1", title: "第一章 还未熄灭的灯", summary: "林澈收到来自未来的信。" }, { id: "outline-2", title: "第二章 记忆黑市", summary: "线索指向旧城区的记忆交易所。" }] };
+      if (input.action.startsWith("review")) return { summary: "草稿整体稳定，建议加强线索回收。", issues: [{ severity: "warning", category: "节奏", title: "冲突出现稍晚", detail: "前两段环境描写占比偏高。", suggestion: "在首段加入一个可验证的异常细节。" }] };
+      return { content: "林澈把信纸翻到背面，那里浮出一行只有雨夜才会出现的字：不要相信明天的钟。\n\n他抬头看向雾港，远处的灯一盏接一盏熄灭，像有人正在城市的记忆里删除一条街。", summary: "林澈发现信件隐藏信息，雾港出现异常。" };
+    },
+    async ExportNovelProject() { return { filename: "雾港来信.md", mime: "text/markdown", payload: "# 雾港来信\n\n## 第一章 还未熄灭的灯\n\n雨水沿着窗沿落下。", base64Encoded: false }; },
+    async ImportNovelBible() {
+      const now = Date.now();
+      const bible = { filename: "雾港作品圣经.md", importedAt: now, characters: 6842, summary: "雾港以记忆交易为核心，林澈追查来自未来的信。", style: "冷峻、克制、电影感" };
+      return { bible, memory: { bible, globalSummary: bible.summary, timeline: ["林澈收到未来来信"], characterStates: { 林澈: "尚未查明来信来源" }, facts: ["记忆可以被合法交易"], openThreads: ["来信的发送者身份"], constraints: ["时间线不可逆转"], chapters: [], updatedAt: now } };
+    },
+    async NovelMemory() {
+      return { bible: { filename: "雾港作品圣经.md", importedAt: Date.now(), characters: 6842, summary: "雾港以记忆交易为核心。", style: "冷峻、电影感" }, globalSummary: "林澈收到来自未来的信。", timeline: ["林澈收到未来来信"], characterStates: { 林澈: "正在调查" }, facts: ["记忆可以交易"], openThreads: ["寄信者身份"], constraints: ["保持第一人称限知"], chapters: [], updatedAt: Date.now() };
+    },
+    async StartNovelAutoWrite(input: NovelAutoWriteInput) {
+      const now = Date.now();
+      return { id: `mock-autowrite-${now}`, projectId: input.projectId, status: "running", phase: "主 AI 正在创作", targetChapters: input.targetChapters, completedChapters: 4, targetWordsPerChapter: input.targetWordsPerChapter, currentChapterTitle: "第五章 潮汐档案", instruction: input.instruction || "", lastIssues: [], createdAt: now, updatedAt: now };
+    },
+    async ListNovelAutoWriteJobs() { return []; },
+    async PauseNovelAutoWrite() {},
+    async ResumeNovelAutoWrite() {},
+    async StopNovelAutoWrite() {},
     async SwitchWorkspace(path: string) {
       return mockSwitchWorkspace(path);
     },
@@ -3887,7 +3962,7 @@ function makeMockApp(): AppBindings {
     },
     async PlanMarketplaceInstall(id: string) {
       const c = await this.MarketplaceCatalog("all", ""); const e = c.entries.find((x) => x.id === id); if (!e) throw new Error("Marketplace item not found");
-      const source = e.kind === "skill" ? `${e.repository}/tree/${e.commit}` : e.repository;
+      const source = marketplaceInstallSource(e.repository, e.kind, e.commit);
       return JSON.stringify({ ok: true, status: "planned", planId: `mock-${id}`, kind: e.kind, actions: [{ kind: e.kind, action: e.kind === "plugin" ? "install_plugin_package" : "copy_skill", name: e.name, source, commit: e.commit, riskLevel: e.risk, riskReasons: e.riskReasons, status: "planned" }] });
     },
     async InstallMarketplace(id: string, planId: string) {
