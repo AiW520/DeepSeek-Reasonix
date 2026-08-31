@@ -39,7 +39,7 @@ func bashPathForTest(t *testing.T, path string) string {
 	if runtime.GOOS != "windows" {
 		return path
 	}
-	if _, err := exec.LookPath("wsl.exe"); err == nil {
+	if hasWSLForTest() {
 		out, pathErr := exec.Command("wsl.exe", "-e", "wslpath", "-a", "-u", path).Output()
 		if pathErr != nil {
 			t.Fatalf("convert Windows path for WSL bash: %v", pathErr)
@@ -70,8 +70,10 @@ func packageWindowsTestCommand(t *testing.T, payload string) *exec.Cmd {
 }
 
 func hasWSLForTest() bool {
-	_, err := exec.LookPath("wsl.exe")
-	return err == nil
+	if _, err := exec.LookPath("wsl.exe"); err != nil {
+		return false
+	}
+	return exec.Command("wsl.exe", "-e", "true").Run() == nil
 }
 
 func parseSignPathConfiguration(t *testing.T, name string) signPathArtifactConfiguration {
