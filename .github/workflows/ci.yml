@@ -583,6 +583,17 @@ jobs:
         timeout-minutes: 20
         run: ../scripts/desktop-build.sh windows/amd64 v0.0.0-ci canary
 
+      - name: Upload Windows installer and portable archive
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: reasonix-windows-amd64-${{ github.sha }}
+          path: |
+            dist/Reasonix-windows-amd64-installer.exe
+            dist/Reasonix-windows-amd64.zip
+          if-no-files-found: error
+          retention-days: 14
+
   # repolint scans desktop/ and sdk/ too, so this job also runs for diffs the
   # `code` filter would otherwise skip.
   lint:
