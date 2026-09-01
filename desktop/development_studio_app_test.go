@@ -144,7 +144,7 @@ func TestDevelopmentStudioReviewRunnerUsesGovernedReadOnlySpec(t *testing.T) {
 func TestDevelopmentStudioEventHistoryIsBounded(t *testing.T) {
 	m := &developmentStudioManager{tabs: map[string]*developmentStudioTab{}}
 	state := m.tabLocked("tab-1")
-	for i := 0; i < developmentStudioMaxEvents+5; i++ {
+	for range developmentStudioMaxEvents + 5 {
 		m.publishLocked(state, DevelopmentStudioEvent{TabID: "tab-1", Title: "event"})
 	}
 	if len(state.events) != developmentStudioMaxEvents {

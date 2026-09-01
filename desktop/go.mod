@@ -77,7 +77,7 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/yuin/goldmark v1.8.5 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.74.4 // indirect

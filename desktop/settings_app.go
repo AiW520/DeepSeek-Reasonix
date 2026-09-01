@@ -1789,7 +1789,7 @@ func (a *App) saveProviderCredential(apiKeyEnv, value string) (string, error) {
 		// Keep legacy file-store installations functional when the OS vault is
 		// unavailable, but never hide the reason from the user.
 		if fallbackErr := upsertDotEnv(apiKeyEnv, value); fallbackErr != nil {
-			return "", fmt.Errorf("store provider credential securely: %w (file fallback failed: %v)", err, fallbackErr)
+			return "", fmt.Errorf("store provider credential securely: %w (file fallback failed: %w)", err, fallbackErr)
 		}
 		return "The operating-system credential vault was unavailable, so Reasonix used its legacy credential file.", nil
 	}

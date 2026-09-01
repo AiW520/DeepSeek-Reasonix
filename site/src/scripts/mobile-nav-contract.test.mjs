@@ -23,9 +23,9 @@ test("≤640px: marketing nav contracts to fit 390px viewports", async () => {
   ]);
   const block = mediaBlock(css, 640);
   assert.match(block, /\.nav-sign-in \{ display: none/);
-  assert.match(block, /\.nav \.brand span \{ display: none/);
-  assert.match(block, /\.nav \.brand img \{ width: 64px; \}/);
-  assert.match(header, /<source media=\"\(max-width: 400px\)\" srcset=\{`\$\{base\}\/favicon\.svg`\} \/>/);
+  assert.match(block, /\.nav \.brand-name \{ display: none/);
+  assert.match(block, /\.nav \.brand img \{ width: 30px; height: 30px; \}/);
+  assert.match(header, /<source media=\"\(max-width: 400px\)\" srcset=\{`\$\{base\}\/reasonix-icon\.png`\} \/>/);
   assert.match(block, /\.theme-switch button \{ padding: 6px 9px/);
 });
 

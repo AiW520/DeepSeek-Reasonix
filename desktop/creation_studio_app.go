@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -562,12 +563,7 @@ func safeCreationProviderMessage(body []byte, key string) string {
 }
 
 func oneOf(value string, values ...string) bool {
-	for _, candidate := range values {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, value)
 }
 
 func fallbackText(value, fallback string) string {
