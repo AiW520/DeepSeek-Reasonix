@@ -322,7 +322,7 @@ func receiverName(field *ast.FieldList) string {
 	if field == nil || len(field.List) == 0 {
 		return ""
 	}
-	var expression ast.Expr = field.List[0].Type
+	expression := field.List[0].Type
 	if pointer, ok := expression.(*ast.StarExpr); ok {
 		expression = pointer.X
 	}

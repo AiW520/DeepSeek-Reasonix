@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -62,17 +63,17 @@ func TestResolveProviderBuildsOrderedSameProviderFailover(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
-	var text string
+	var text strings.Builder
 	for chunk := range stream {
 		if chunk.Type == provider.ChunkError {
 			t.Fatalf("stream error: %v", chunk.Err)
 		}
 		if chunk.Type == provider.ChunkText {
-			text += chunk.Text
+			text.WriteString(chunk.Text)
 		}
 	}
-	if text != "fallback ok" {
-		t.Fatalf("stream text = %q", text)
+	if text.String() != "fallback ok" {
+		t.Fatalf("stream text = %q", text.String())
 	}
 	select {
 	case info := <-notified:

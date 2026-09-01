@@ -155,7 +155,10 @@ func SummarizeDataFlow(artifact ArtifactEnvelope) (DataFlowSummary, error) {
 	return summary, nil
 }
 
-type flowEnvironment map[*ast.Object][]string
+// flowEnvironment tracks definitions by the parser's object identity. The
+// identity is intentionally opaque here so this analysis does not depend on
+// the deprecated concrete ast.Object type.
+type flowEnvironment map[any][]string
 
 type goDataFlowBuilder struct {
 	artifact     *AnalysisArtifact

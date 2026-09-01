@@ -12,6 +12,7 @@ import (
 	gotoken "go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -117,10 +118,8 @@ func SummarizeParseArtifact(artifact ArtifactEnvelope) (ParseSummary, error) {
 }
 
 func appendUnique(values []string, value string) []string {
-	for _, existing := range values {
-		if existing == value {
-			return values
-		}
+	if slices.Contains(values, value) {
+		return values
 	}
 	return append(values, value)
 }
@@ -130,7 +129,8 @@ func parseGoSyntax(ctx context.Context, rel string, source []byte, nodeLimit int
 	file, parseErr := parser.ParseFile(fset, rel, source, parser.AllErrors|parser.ParseComments)
 	diagnostics := []ParseDiagnostic{}
 	if parseErr != nil {
-		if list, ok := parseErr.(scanner.ErrorList); ok {
+		var list scanner.ErrorList
+		if errors.As(parseErr, &list) {
 			for _, item := range list {
 				diagnostics = append(diagnostics, ParseDiagnostic{Path: rel, Severity: "error", Message: item.Error(), Line: item.Pos.Line})
 			}

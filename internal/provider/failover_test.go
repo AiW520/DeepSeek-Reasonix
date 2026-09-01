@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -48,17 +49,17 @@ func TestFailoverProviderSwitchesOnFirstTokenTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var text string
+	var text strings.Builder
 	for chunk := range stream {
 		if chunk.Type == ChunkText {
-			text += chunk.Text
+			text.WriteString(chunk.Text)
 		}
 		if chunk.Type == ChunkError {
 			t.Fatalf("unexpected error: %v", chunk.Err)
 		}
 	}
-	if text != "OK" {
-		t.Fatalf("text = %q, want OK", text)
+	if text.String() != "OK" {
+		t.Fatalf("text = %q, want OK", text.String())
 	}
 	select {
 	case info := <-notified:

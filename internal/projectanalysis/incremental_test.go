@@ -2,6 +2,7 @@ package projectanalysis
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -56,10 +57,5 @@ func TestArtifactCacheKeySortsInputHashesAndIncludesVersions(t *testing.T) {
 }
 
 func containsStage(stages []StageID, want StageID) bool {
-	for _, stage := range stages {
-		if stage == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(stages, want)
 }
