@@ -4551,27 +4551,11 @@ function providerKeyStatusLabel(provider: { keySet: boolean; requiresKey?: boole
   return provider.keySet ? t("settings.keySet") : t("settings.noKey");
 }
 
-async function validateAndSaveProviderDraft(
+async function validateAndSaveProviderStrict(
   provider: ProviderView,
   key: string | undefined,
-  fallbackWarning: string,
 ): Promise<ProviderSaveResult> {
-  const validation = await app.ValidateAndSaveProvider(provider, key ?? "");
-  if (validation.saved) return validation;
-
-  // A gateway can expose /models while temporarily rejecting chat completions
-  // (for example with no_available_channel). Keep the user's configuration in
-  // the provider list so it can be repaired and tested later instead of
-  // silently discarding the draft.
-  const persistedWarning = key?.trim()
-    ? await app.SaveProviderWithKey(provider, key.trim())
-    : (await app.SaveProvider(provider), "");
-  const warning = [
-    fallbackWarning,
-    validation.diagnostic.message,
-    persistedWarning,
-  ].filter((value) => value.trim()).join(" ");
-  return { ...validation, saved: true, warning };
+  return app.ValidateAndSaveProvider(provider, key ?? "");
 }
 
 function modelProviderLabel(provider: string, providerView: ProviderView | undefined, t: ReturnType<typeof useT>): string {
@@ -4965,11 +4949,7 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
             onAddCustom={(pv, key) => {
               let result: ProviderSaveResult | undefined;
               return apply(async () => {
-                result = await validateAndSaveProviderDraft(
-                  pv,
-                  key,
-                  t("settings.providerSavedWithoutValidation"),
-                );
+                result = await validateAndSaveProviderStrict(pv, key);
                 if (result.saved) invalidateProviderCacheByAPIKeyEnv(pv.apiKeyEnv);
                 return result.warning ?? "";
               }).then(() => {
@@ -4996,11 +4976,7 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
               cancelGroupFetch(selectedGroup.id);
               let result: Awaited<ReturnType<typeof app.ValidateAndSaveProvider>> | undefined;
               return apply(async () => {
-                result = await validateAndSaveProviderDraft(
-                  pv,
-                  key,
-                  t("settings.providerSavedWithoutValidation"),
-                );
+                result = await validateAndSaveProviderStrict(pv, key);
                 if (result.saved) invalidateProviderCacheByAPIKeyEnv(pv.apiKeyEnv);
                 return result.warning ?? "";
               }).then(() => {
