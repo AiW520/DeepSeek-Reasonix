@@ -1662,6 +1662,12 @@ export const zhTW: Record<DictKey, string> = {
   "settings.themes.official.official-cyan-stage.description": "青藍未來舞台與原創數位表演者。",
   "settings.themes.official.official-noir-gold.name": "黑金序曲",
   "settings.themes.official.official-noir-gold.description": "黑色絲絨舞台與金色聚光燈下的原創創意紳士。",
+  "settings.themes.official.official-daylight.name": "晴晝",
+  "settings.themes.official.official-daylight.description": "清透日光工作區與明快藍色強調，適合專注工作。",
+  "settings.themes.official.official-graphite-teal.name": "石墨青",
+  "settings.themes.official.official-graphite-teal.description": "深石墨表面搭配沉靜青綠色，適合長時間使用。",
+  "settings.themes.official.official-silver-rose.name": "銀霧玫",
+  "settings.themes.official.official-silver-rose.description": "柔和銀色面板與玫瑰色強調，營造精緻創作空間。",
 
   "settings.textSize": "介面字號",
   "settings.textSizeSmall": "小",

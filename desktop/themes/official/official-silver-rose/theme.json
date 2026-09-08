@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "official-silver-rose",
+  "name": "Silver Rose",
+  "author": "Reasonix Contributors",
+  "description": "Soft silver panels and rose accents for a refined creative workspace.",
+  "license": "MIT",
+  "baseStyle": "aurora",
+  "tokens": {
+    "light": {"bg":"#F7F7FB","bgSoft":"#EEEFF6","bgElev":"#FFFFFF","panel":"#FFFFFF","sidebar":"#ECECF4","chat":"#FAFAFD","workspace":"#FFFFFF","workspaceFiles":"#F0F0F7","border":"#CBC9D9","borderSoft":"#E5E4ED","fg":"#292536","fgDim":"#625B70","fgFaint":"#91899F","accent":"#AF476F","accentFg":"#FFFFFF"},
+    "dark": {"bg":"#19171E","bgSoft":"#24202B","bgElev":"#2E2938","panel":"#292431","sidebar":"#241F2D","chat":"#211D29","workspace":"#2E2938","workspaceFiles":"#292431","border":"#4B4155","borderSoft":"#392F43","fg":"#FAF4FA","fgDim":"#D0BED0","fgFaint":"#9F8DA0","accent":"#E28AA9","accentFg":"#301322"}
+  },
+  "recipes": {"density":"comfortable","corners":"round"},
+  "background": {"image":"background.webp","focusX":0.72,"focusY":0.44,"safeArea":"left","homeOpacity":0.97,"taskOpacity":0.2,"overlayStrength":0.7,"paneOpacity":0.5}
+}

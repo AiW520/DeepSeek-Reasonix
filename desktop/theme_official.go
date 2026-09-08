@@ -35,7 +35,7 @@ const (
 	officialMaxBackground    = 2359296  // 2.25 MiB per background
 	officialMaxPreview       = 122880   // 120 KiB per thumbnail
 	officialMaxTotalBytes    = 18 << 20 // 18 MiB across all backgrounds
-	officialExpectedCount    = 8        // release gate: all eight themes
+	officialExpectedCount    = 11       // release gate: all built-in themes
 	themeKindBase            = "base"
 	themeKindOfficial        = "official"
 	themeKindUser            = "user"
@@ -51,6 +51,9 @@ var officialThemeOrderFixed = []string{
 	"official-violet-starlight",
 	"official-cyan-stage",
 	"official-noir-gold",
+	"official-daylight",
+	"official-graphite-teal",
+	"official-silver-rose",
 }
 
 type officialTheme struct {

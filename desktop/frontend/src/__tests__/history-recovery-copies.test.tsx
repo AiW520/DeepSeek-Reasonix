@@ -11,12 +11,12 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { SessionMeta } from "../lib/types";
 
-// HistoryPanel transitively imports Welcome's SVG wordmark; tsx has no asset
-// loader, so redirect .svg specifiers to an empty-string module stub, the way
+// HistoryPanel transitively imports Welcome's logo; tsx has no asset
+// loader, so redirect image specifiers to an empty-string module stub, the way
 // Vite would default-export a URL.
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier.endsWith(".svg")) {
+    if (/\.(svg|png)$/.test(specifier)) {
       return nextResolve("./asset-stub-for-tests.ts", { ...context, parentURL: import.meta.url });
     }
     return nextResolve(specifier, context);

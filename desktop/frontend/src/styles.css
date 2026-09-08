@@ -21745,6 +21745,9 @@ body > .mermaid-diagram--fullscreen {
     rgba(7, 8, 10, 0.92);
   backdrop-filter: none;
   --wails-draggable: drag;
+  overflow-y: auto;
+  padding: 24px;
+  box-sizing: border-box;
 }
 .onboarding__card {
   --wails-draggable: no-drag;
@@ -21757,6 +21760,10 @@ body > .mermaid-diagram--fullscreen {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin: auto;
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .onboarding__logo {
   width: 36px;
@@ -21869,6 +21876,7 @@ body > .mermaid-diagram--fullscreen {
 }
 .onboarding__links {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   font-size: 12px;

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "official-graphite-teal",
+  "name": "Graphite Teal",
+  "author": "Reasonix Contributors",
+  "description": "Deep graphite surfaces with calm teal highlights for long sessions.",
+  "license": "MIT",
+  "baseStyle": "graphite",
+  "tokens": {
+    "light": {"bg":"#F3F7F6","bgSoft":"#E6F0EE","bgElev":"#FFFFFF","panel":"#FFFFFF","sidebar":"#E4EFEC","chat":"#F7FBFA","workspace":"#FFFFFF","workspaceFiles":"#EAF4F1","border":"#B7D0C9","borderSoft":"#D9E9E4","fg":"#172B29","fgDim":"#4A6863","fgFaint":"#607D76","accent":"#187A69","accentFg":"#FFFFFF"},
+    "dark": {"bg":"#101817","bgSoft":"#172421","bgElev":"#20302C","panel":"#1B2A27","sidebar":"#162522","chat":"#15231F","workspace":"#20302C","workspaceFiles":"#1B2A27","border":"#37534C","borderSoft":"#293F3A","fg":"#ECFAF6","fgDim":"#B2D4CA","fgFaint":"#7FA79B","accent":"#5DC8B1","accentFg":"#08221C"}
+  },
+  "recipes": {"density":"comfortable","corners":"soft"},
+  "background": {"image":"background.webp","focusX":0.73,"focusY":0.43,"safeArea":"left","homeOpacity":0.95,"taskOpacity":0.18,"overlayStrength":0.74,"paneOpacity":0.5}
+}

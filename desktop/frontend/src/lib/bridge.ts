@@ -1576,6 +1576,18 @@ function makeMockApp(): AppBindings {
       previewUrl: new URL("../../../themes/official/official-noir-gold/preview.webp", import.meta.url).href,
       backgroundUrl: new URL("../../../themes/official/official-noir-gold/background.webp", import.meta.url).href,
     },
+    "official-daylight": {
+      previewUrl: new URL("../../../themes/official/official-daylight/preview.webp", import.meta.url).href,
+      backgroundUrl: new URL("../../../themes/official/official-daylight/background.webp", import.meta.url).href,
+    },
+    "official-graphite-teal": {
+      previewUrl: new URL("../../../themes/official/official-graphite-teal/preview.webp", import.meta.url).href,
+      backgroundUrl: new URL("../../../themes/official/official-graphite-teal/background.webp", import.meta.url).href,
+    },
+    "official-silver-rose": {
+      previewUrl: new URL("../../../themes/official/official-silver-rose/preview.webp", import.meta.url).href,
+      backgroundUrl: new URL("../../../themes/official/official-silver-rose/background.webp", import.meta.url).href,
+    },
   } as const;
   registerTrustedThemeBackgroundURLs(Object.values(mockOfficialThemeAssets).map((asset) => asset.backgroundUrl));
   let mockThemePacks: import("./themePack").ThemePackView[] = [
@@ -1593,6 +1605,9 @@ function makeMockApp(): AppBindings {
     { ...mockOfficialThemeAssets["official-violet-starlight"], id: "official-violet-starlight", name: "Violet Starlight", author: "Reasonix Contributors", license: "MIT", baseStyle: "nocturne", builtin: true, kind: "official", active: false, hasBackground: true, nameKey: "settings.themes.official.official-violet-starlight.name", descriptionKey: "settings.themes.official.official-violet-starlight.description", tokens: { light: { bg: "#F7F4FF", fg: "#251F3C", accent: "#6242C7" }, dark: { bg: "#0C1022", fg: "#F4F2FF", accent: "#9B86FF" } }, recipes: { density: "comfortable", corners: "round" }, background: { focusX: 0.73, focusY: 0.44, safeArea: "left", homeOpacity: 0.96, taskOpacity: 0.18, overlayStrength: 0.72, paneOpacity: 0.50 } },
     { ...mockOfficialThemeAssets["official-cyan-stage"], id: "official-cyan-stage", name: "Cyan Stage", author: "Reasonix Contributors", license: "MIT", baseStyle: "carbon", builtin: true, kind: "official", active: false, hasBackground: true, nameKey: "settings.themes.official.official-cyan-stage.name", descriptionKey: "settings.themes.official.official-cyan-stage.description", tokens: { light: { bg: "#F1FCFD", fg: "#173238", accent: "#007C92" }, dark: { bg: "#07181D", fg: "#E9FCFF", accent: "#37D7E4" } }, recipes: { density: "comfortable", corners: "round" }, background: { focusX: 0.74, focusY: 0.45, safeArea: "left", homeOpacity: 0.96, taskOpacity: 0.18, overlayStrength: 0.72, paneOpacity: 0.50 } },
     { ...mockOfficialThemeAssets["official-noir-gold"], id: "official-noir-gold", name: "Noir Gold", author: "Reasonix Contributors", license: "MIT", baseStyle: "carbon", builtin: true, kind: "official", active: false, hasBackground: true, nameKey: "settings.themes.official.official-noir-gold.name", descriptionKey: "settings.themes.official.official-noir-gold.description", tokens: { light: { bg: "#FCF8EE", fg: "#2A241B", accent: "#7A5A16" }, dark: { bg: "#0D0B09", fg: "#F8F1DF", accent: "#D9B45B" } }, recipes: { density: "comfortable", corners: "soft" }, background: { focusX: 0.73, focusY: 0.43, safeArea: "left", homeOpacity: 0.94, taskOpacity: 0.18, overlayStrength: 0.74, paneOpacity: 0.50 } },
+    { ...mockOfficialThemeAssets["official-daylight"], id: "official-daylight", name: "Daylight", author: "Reasonix Contributors", license: "MIT", baseStyle: "slate", builtin: true, kind: "official", active: false, hasBackground: true, nameKey: "settings.themes.official.official-daylight.name", descriptionKey: "settings.themes.official.official-daylight.description", tokens: { light: { bg: "#F5F7FB", fg: "#17263D", accent: "#2862DD" }, dark: { bg: "#101827", fg: "#EDF4FF", accent: "#6F9BFF" } }, recipes: { density: "comfortable", corners: "soft" }, background: { focusX: 0.74, focusY: 0.45, safeArea: "left", homeOpacity: 0.96, taskOpacity: 0.18, overlayStrength: 0.72, paneOpacity: 0.50 } },
+    { ...mockOfficialThemeAssets["official-graphite-teal"], id: "official-graphite-teal", name: "Graphite Teal", author: "Reasonix Contributors", license: "MIT", baseStyle: "graphite", builtin: true, kind: "official", active: false, hasBackground: true, nameKey: "settings.themes.official.official-graphite-teal.name", descriptionKey: "settings.themes.official.official-graphite-teal.description", tokens: { light: { bg: "#F3F7F6", fg: "#172B29", accent: "#187A69" }, dark: { bg: "#101817", fg: "#ECFAF6", accent: "#5DC8B1" } }, recipes: { density: "comfortable", corners: "soft" }, background: { focusX: 0.73, focusY: 0.43, safeArea: "left", homeOpacity: 0.95, taskOpacity: 0.18, overlayStrength: 0.74, paneOpacity: 0.50 } },
+    { ...mockOfficialThemeAssets["official-silver-rose"], id: "official-silver-rose", name: "Silver Rose", author: "Reasonix Contributors", license: "MIT", baseStyle: "aurora", builtin: true, kind: "official", active: false, hasBackground: true, nameKey: "settings.themes.official.official-silver-rose.name", descriptionKey: "settings.themes.official.official-silver-rose.description", tokens: { light: { bg: "#F7F7FB", fg: "#292536", accent: "#AF476F" }, dark: { bg: "#19171E", fg: "#FAF4FA", accent: "#E28AA9" } }, recipes: { density: "comfortable", corners: "round" }, background: { focusX: 0.72, focusY: 0.44, safeArea: "left", homeOpacity: 0.97, taskOpacity: 0.2, overlayStrength: 0.7, paneOpacity: 0.50 } },
   ];
   const day = 86_400_000;
   const t0 = Date.now();

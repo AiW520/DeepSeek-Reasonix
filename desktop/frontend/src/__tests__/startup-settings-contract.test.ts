@@ -218,7 +218,7 @@ ok(
   "official provider templates honor the backend installed state",
 );
 ok(
-  /onUpgradeRecommended=\{\(name\) => \{[\s\S]*?cancelGroupFetch\(group\.id\);[\s\S]*?return apply\(\(\) => app\.UpgradeDeepSeekProviderAccess\(name\)\)/.test(settingsSource) &&
+  /onUpgradeRecommended=\{\(name\) => \{[\s\S]*?cancelGroupFetch\(selectedGroup\.id\);[\s\S]*?return apply\(\(\) => app\.UpgradeDeepSeekProviderAccess\(name\)\)/.test(settingsSource) &&
     settingsSource.includes("onConfirm={() => onUpgradeRecommended(canonicalOfficialProviderName(upgradeProvider.name))}") &&
     settingsSource.includes('className="provider-protocol-upgrade"') &&
     settingsSource.includes('t("settings.providerProtocol")}: OpenAI Chat Completions') &&
@@ -226,7 +226,7 @@ ok(
   "legacy official DeepSeek cards expose an explicit recommended-protocol action",
 );
 ok(
-  settingsSource.includes("const providerNames = group.providers.map((provider) => provider.name)") &&
+  settingsSource.includes("const providerNames = selectedGroup.providers.map((provider) => provider.name)") &&
     settingsSource.includes("app.SetProviderWebSearch(providerNames, enabled)") &&
     !settingsSource.includes("app.SaveProvider({ ...provider, webSearch: enabled })"),
   "grouped DeepSeek profiles update server-side web search through one atomic backend call",

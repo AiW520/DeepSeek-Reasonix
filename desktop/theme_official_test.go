@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// The release gate: all eight embedded official themes must parse through the
+// The release gate: all embedded official themes must parse through the
 // Theme Pack V1 validator with unique ids/names, valid images and budgets.
 func TestOfficialThemesAllValid(t *testing.T) {
 	resetOfficialRegistryForTest()

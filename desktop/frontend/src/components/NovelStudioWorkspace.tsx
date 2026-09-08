@@ -1,18 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { BookOpen, Brain, Check, ChevronRight, Download, FileText, History, Lightbulb, Loader2, Pause, Play, Plus, RotateCcw, Save, Sparkles, Square, Trash2, Upload, Users, WandSparkles, X } from "lucide-react";
 import { app } from "../lib/bridge";
 import type { NovelAIAction, NovelAIResult, NovelAutoWriteJob, NovelChapter, NovelLongMemory, NovelProject, NovelProjectInput, NovelReviewIssue, NovelVersion } from "../lib/types";
+import { createNovelChapterSaves } from "../lib/novelChapterSaves";
 import "./NovelStudioWorkspace.css";
+import "./SuperWorkspace.css";
 
-type Props = { onClose: () => void };
+type Props = { onClose: () => void; registerBeforeLeave?: (guard: () => Promise<boolean>) => () => void };
 const EMPTY_INPUT: NovelProjectInput = { title: "", genre: "悬疑科幻", premise: "", tone: "冷峻、电影感", targetWords: 80000 };
 
-export function NovelStudioWorkspace({ onClose }: Props) {
+export function NovelStudioWorkspace({ onClose, registerBeforeLeave }: Props) {
   const [projects, setProjects] = useState<Array<{ id: string; title: string; genre: string; chapterCount: number; wordCount: number; updatedAt: number }>>([]);
-  const [project, setProject] = useState<NovelProject | null>(null);
+  const [project, commitProject] = useState<NovelProject | null>(null);
+  const projectRef = useRef<NovelProject | null>(null);
+  const setProject = useCallback((value: SetStateAction<NovelProject | null>) => {
+    const next = typeof value === "function" ? value(projectRef.current) : value;
+    projectRef.current = next;
+    commitProject(next);
+  }, []);
   const [activeChapterId, setActiveChapterId] = useState("");
   const [tab, setTab] = useState<"write" | "memory" | "auto" | "world" | "characters" | "outline" | "review">("write");
-  const [busy, setBusy] = useState(false);
+  const [busy, commitBusy] = useState(false);
+  const busyRef = useRef(false);
+  const setBusy = useCallback((value: boolean) => {
+    busyRef.current = value;
+    commitBusy(value);
+  }, []);
   const [message, setMessage] = useState("");
   const [issues, setIssues] = useState<NovelReviewIssue[]>([]);
   const [versions, setVersions] = useState<NovelVersion[]>([]);
@@ -24,12 +37,54 @@ export function NovelStudioWorkspace({ onClose }: Props) {
   const [autoTarget, setAutoTarget] = useState(20);
   const [autoWords, setAutoWords] = useState(2500);
   const [autoInstruction, setAutoInstruction] = useState("");
+  const mountedRef = useRef(true);
+  const [saves] = useState(() => createNovelChapterSaves(
+    (projectId, draft) => app.SaveNovelChapter(projectId, draft),
+    (projectId, submitted, saved) => {
+      if (!mountedRef.current) return;
+      setProject((current) => current?.id === projectId ? {
+        ...current,
+        chapters: current.chapters.map((item) => item.id === submitted.id && item.content === submitted.content && item.title === submitted.title ? saved : item),
+      } : current);
+    },
+  ));
+  const flushDrafts = useCallback(async () => {
+    try {
+      await saves.flush();
+      if (mountedRef.current) setDirty(saves.hasPending());
+      return true;
+    } catch (e) {
+      if (mountedRef.current) setMessage(`保存失败，修改仍保留在编辑器中：${String(e)}`);
+      return false;
+    }
+  }, [saves]);
+  useEffect(() => registerBeforeLeave?.(async () => {
+    if (busyRef.current) {
+      setMessage("请等待当前操作完成后再离开工作室");
+      return false;
+    }
+    return flushDrafts();
+  }), [registerBeforeLeave, flushDrafts]);
+  useEffect(() => {
+    mountedRef.current = true;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!saves.hasPending()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener("beforeunload", beforeUnload);
+      void saves.flush().catch((error) => console.error("Novel draft save failed during unmount", error));
+    };
+  }, [saves]);
 
   useEffect(() => { void app.ListNovelProjects().then(setProjects).catch((e) => setMessage(String(e))); }, []);
   useEffect(() => { if (!project && projects[0]) void openProject(projects[0].id); }, [projects]);
   const chapter = useMemo(() => project?.chapters.find((item) => item.id === activeChapterId) || project?.chapters[0], [project, activeChapterId]);
   useEffect(() => { if (chapter && chapter.id !== activeChapterId) setActiveChapterId(chapter.id); }, [chapter, activeChapterId]);
-  useEffect(() => { if (!dirty || !chapter) return; const timer = window.setTimeout(() => void saveChapter(), 900); return () => window.clearTimeout(timer); }, [dirty, chapter?.content, chapter?.title]);
+  useEffect(() => { if (!dirty) return; const timer = window.setTimeout(() => void flushDrafts(), 900); return () => window.clearTimeout(timer); }, [dirty, chapter?.id, chapter?.content, chapter?.title, flushDrafts]);
   useEffect(() => {
     if (!project) { setMemory(null); setJobs([]); return; }
     let alive = true;
@@ -40,7 +95,13 @@ export function NovelStudioWorkspace({ onClose }: Props) {
         if (!alive) return;
         setMemory(nextMemory); setJobs(nextJobs);
         const completed = nextJobs[0]?.completedChapters ?? 0;
-        if (previousCompleted >= 0 && completed !== previousCompleted) setProject(await app.LoadNovelProject(project.id));
+        if (previousCompleted >= 0 && completed !== previousCompleted) {
+          if (saves.hasPending() || busyRef.current) return;
+          const snapshot = projectRef.current;
+          const loaded = await app.LoadNovelProject(project.id);
+          if (!alive || saves.hasPending() || busyRef.current || projectRef.current !== snapshot || snapshot?.id !== loaded.id) return;
+          setProject((current) => current ? { ...current, chapters: loaded.chapters } : current);
+        }
         previousCompleted = completed;
       } catch (e) { if (alive) setMessage(String(e)); }
     };
@@ -49,30 +110,40 @@ export function NovelStudioWorkspace({ onClose }: Props) {
     return () => { alive = false; window.clearInterval(timer); };
   }, [project?.id]);
 
-  async function openProject(id: string) { setBusy(true); try { const next = await app.LoadNovelProject(id); setProject(next); setIssues([]); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
-  async function createProject() { setBusy(true); try { const next = await app.CreateNovelProject(newInput); setProject(next); setProjects((old) => [{ id: next.id, title: next.title, genre: next.genre, chapterCount: next.chapters.length, wordCount: next.chapters.reduce((sum, c) => sum + c.wordCount, 0), updatedAt: next.updatedAt }, ...old]); setShowNew(false); setNewInput(EMPTY_INPUT); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
-  function updateChapter(patch: Partial<NovelChapter>) { if (!project || !chapter) return; setDirty(true); setProject({ ...project, chapters: project.chapters.map((item) => item.id === chapter.id ? { ...item, ...patch } : item) }); }
-  async function saveChapter() { if (!project || !chapter) return; try { const saved = await app.SaveNovelChapter(project.id, chapter); setDirty(false); setProject((current) => current ? { ...current, chapters: current.chapters.map((item) => item.id === saved.id ? saved : item), updatedAt: Date.now() } : current); setMessage("已自动保存"); } catch (e) { setMessage(String(e)); } }
-  async function saveProject() { if (!project) return; setBusy(true); try { setProject(await app.SaveNovelProject(project)); setMessage("项目设定已保存"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
-  async function addChapter() { if (!project) return; const next: NovelChapter = { id: "", title: `第 ${project.chapters.length + 1} 章`, outline: "", content: "", summary: "", status: "draft", order: project.chapters.length + 1, wordCount: 0, updatedAt: Date.now() }; setBusy(true); try { const saved = await app.SaveNovelChapter(project.id, next); setProject({ ...project, chapters: [...project.chapters, saved] }); setActiveChapterId(saved.id); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
-  async function deleteProject() { if (!project || !window.confirm(`确定删除《${project.title}》及其本地版本吗？`)) return; setBusy(true); try { await app.DeleteNovelProject(project.id); const remaining = projects.filter((item) => item.id !== project.id); setProjects(remaining); setProject(null); if (remaining[0]) await openProject(remaining[0].id); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function openProject(id: string) { if (busy) return; setBusy(true); try { if (!await flushDrafts()) return; const next = await app.LoadNovelProject(id); setProject(next); setIssues([]); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function createProject() { if (busy) return; setBusy(true); try { if (!await flushDrafts()) return; const next = await app.CreateNovelProject(newInput); setProject(next); setProjects((old) => [{ id: next.id, title: next.title, genre: next.genre, chapterCount: next.chapters.length, wordCount: next.chapters.reduce((sum, c) => sum + c.wordCount, 0), updatedAt: next.updatedAt }, ...old]); setShowNew(false); setNewInput(EMPTY_INPUT); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  function updateChapter(patch: Partial<NovelChapter>) {
+    if (busy || !projectRef.current || !chapter) return;
+    const current = projectRef.current;
+    const updated = { ...current.chapters.find((item) => item.id === chapter.id)!, ...patch };
+    saves.edit(current.id, updated);
+    setDirty(true);
+    setProject({ ...current, chapters: current.chapters.map((item) => item.id === chapter.id ? updated : item) });
+  }
+  async function saveChapter() { if (await flushDrafts()) setMessage("已保存"); }
+  async function selectChapter(id: string) { if (busy) return; if (await flushDrafts()) setActiveChapterId(id); }
+  async function requestClose() { if (await flushDrafts()) onClose(); }
+  async function saveProject() { if (!project || busy) return; setBusy(true); try { if (!await flushDrafts()) return; setProject(await app.SaveNovelProject(projectRef.current!)); setMessage("项目设定已保存"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function addChapter() { if (!project || busy) return; const next: NovelChapter = { id: "", title: `第 ${project.chapters.length + 1} 章`, outline: "", content: "", summary: "", status: "draft", order: project.chapters.length + 1, wordCount: 0, updatedAt: Date.now() }; setBusy(true); try { if (!await flushDrafts()) return; const saved = await app.SaveNovelChapter(project.id, next); setProject((current) => current ? { ...current, chapters: [...current.chapters, saved] } : current); setActiveChapterId(saved.id); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function deleteProject() { if (busy || !project || !window.confirm(`确定删除《${project.title}》及其本地版本吗？`)) return; setBusy(true); try { if (!await flushDrafts()) return; await app.DeleteNovelProject(project.id); const remaining = projects.filter((item) => item.id !== project.id); setProjects(remaining); setProject(null); if (remaining[0]) setProject(await app.LoadNovelProject(remaining[0].id)); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
   function addCharacter() { if (!project) return; setProject({ ...project, characters: [...project.characters, { id: `character-${Date.now()}`, name: "新人物", role: "配角", traits: "", arc: "", notes: "" }] }); }
   function updateCharacter(id: string, patch: Partial<NovelProject["characters"][number]>) { if (!project) return; setProject({ ...project, characters: project.characters.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
-  async function restoreVersion(versionId: string) { if (!project || !chapter) return; setBusy(true); try { const restored = await app.RestoreNovelVersion(project.id, chapter.id, versionId); setProject({ ...project, chapters: project.chapters.map((item) => item.id === restored.id ? restored : item) }); setMessage("已恢复历史版本"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
-  async function ai(action: NovelAIAction) { if (!project) return; setBusy(true); setMessage(""); try { let activeChapter = chapter; if (activeChapter && dirty) { activeChapter = await app.SaveNovelChapter(project.id, activeChapter); setDirty(false); } const result: NovelAIResult = await app.GenerateNovelContent({ projectId: project.id, chapterId: activeChapter?.id, action }); if (result.content && activeChapter) { const generated = { ...activeChapter, content: action === "continue" ? `${activeChapter.content}\n\n${result.content}` : result.content, summary: result.summary || activeChapter.summary, status: "review" as const }; const saved = await app.SaveNovelChapter(project.id, generated); setProject({ ...project, chapters: project.chapters.map((item) => item.id === saved.id ? saved : item) }); setDirty(false); const reviews = await Promise.all([app.GenerateNovelContent({ projectId: project.id, chapterId: saved.id, action: "review-live" }), app.GenerateNovelContent({ projectId: project.id, chapterId: saved.id, action: "review-final" })]); setIssues(reviews.flatMap((item) => item.issues || [])); } if (result.issues) { setIssues(result.issues); setTab("review"); } if (result.outlines?.length) { const saved = await app.SaveNovelProject({ ...project, outlines: result.outlines }); setProject(saved); } setMessage(action.startsWith("review") ? "审查完成" : "三位 AI 已完成创作与双重审查"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
-  async function exportProject(format: string) { if (!project) return; setBusy(true); try { const result = await app.ExportNovelProject(project.id, format); const path = await app.PickExportFile(result.filename, result.mime); if (path) await app.SaveExportFile(path, result.payload, result.base64Encoded); setMessage("已导出作品"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function restoreVersion(versionId: string) { if (busy || !project || !chapter) return; setBusy(true); try { if (!await flushDrafts()) return; const restored = await app.RestoreNovelVersion(project.id, chapter.id, versionId); setProject({ ...project, chapters: project.chapters.map((item) => item.id === restored.id ? restored : item) }); setMessage("已恢复历史版本"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function ai(action: NovelAIAction) { if (busy || !project) return; setBusy(true); setMessage(""); try { if (!await flushDrafts()) return; const activeChapter = projectRef.current?.chapters.find((item) => item.id === chapter?.id); const result: NovelAIResult = await app.GenerateNovelContent({ projectId: project.id, chapterId: activeChapter?.id, action }); if (result.content && activeChapter) { const generated = { ...activeChapter, content: action === "continue" ? `${activeChapter.content}\n\n${result.content}` : result.content, summary: result.summary || activeChapter.summary, status: "review" as const }; const saved = await app.SaveNovelChapter(project.id, generated); setProject({ ...project, chapters: project.chapters.map((item) => item.id === saved.id ? saved : item) }); setDirty(false); const reviews = await Promise.all([app.GenerateNovelContent({ projectId: project.id, chapterId: saved.id, action: "review-live" }), app.GenerateNovelContent({ projectId: project.id, chapterId: saved.id, action: "review-final" })]); setIssues(reviews.flatMap((item) => item.issues || [])); } if (result.issues) { setIssues(result.issues); setTab("review"); } if (result.outlines?.length) { const saved = await app.SaveNovelProject({ ...project, outlines: result.outlines }); setProject(saved); } setMessage(action.startsWith("review") ? "审查完成" : "三位 AI 已完成创作与双重审查"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function exportProject(format: string) { if (busy || !project) return; setBusy(true); try { if (!await flushDrafts()) return; const result = await app.ExportNovelProject(project.id, format); const path = await app.PickExportFile(result.filename, result.mime); if (path) await app.SaveExportFile(path, result.payload, result.base64Encoded); setMessage("已导出作品"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
   async function loadVersions() { if (!project || !chapter) return; try { setVersions(await app.ListNovelVersions(project.id, chapter.id)); } catch (e) { setMessage(String(e)); } }
   async function importBible() { if (!project) return; setBusy(true); setMessage(""); try { const result = await app.ImportNovelBible(project.id); setMemory(result.memory); setMessage(`已导入 ${result.bible.filename}，长记忆已建立`); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
-  async function startAutoWrite() { if (!project) return; setBusy(true); setMessage(""); try { const created = await app.StartNovelAutoWrite({ projectId: project.id, targetChapters: autoTarget, targetWordsPerChapter: autoWords, instruction: autoInstruction }); setJobs((current) => [created, ...current]); setMessage("连续创作已启动，可关闭工作室让它在后台继续"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
+  async function startAutoWrite() { if (busy || !project) return; setBusy(true); setMessage(""); try { if (!await flushDrafts()) return; const created = await app.StartNovelAutoWrite({ projectId: project.id, targetChapters: autoTarget, targetWordsPerChapter: autoWords, instruction: autoInstruction }); setJobs((current) => [created, ...current]); setMessage("连续创作已启动，可关闭工作室让它在后台继续"); } catch (e) { setMessage(String(e)); } finally { setBusy(false); } }
   async function controlJob(action: "pause" | "resume" | "stop", id: string) { try { if (action === "pause") await app.PauseNovelAutoWrite(id); else if (action === "resume") await app.ResumeNovelAutoWrite(id); else await app.StopNovelAutoWrite(id); setJobs(await app.ListNovelAutoWriteJobs(project?.id || "")); } catch (e) { setMessage(String(e)); } }
 
   return <section className="novel-studio" aria-label="AI 小说工作室">
-    <header className="novel-studio__header"><div className="novel-studio__brand"><span className="novel-studio__logo"><BookOpen size={21} /></span><div><span>REASONIX NOVEL STUDIO</span><h1>AI 小说工作室</h1></div></div><div className="novel-studio__header-actions"><button type="button" onClick={() => setShowNew(true)}><Plus size={15} />新建项目</button><button type="button" onClick={() => void saveProject()} disabled={!project}><Save size={15} />保存设定</button><label className="novel-export"><Download size={15} /><select defaultValue="" disabled={!project || busy} onChange={(e) => { if (e.target.value) void exportProject(e.target.value); e.target.value = ""; }}><option value="" disabled>导出</option><option value="md">Markdown</option><option value="txt">TXT</option><option value="docx">Word DOCX</option></select></label><button type="button" title="删除项目" onClick={() => void deleteProject()} disabled={!project}><Trash2 size={15} /></button><button className="novel-studio__close" type="button" onClick={onClose}><X size={18} /></button></div></header>
+    <header className="novel-studio__header"><div className="novel-studio__brand"><span className="novel-studio__logo"><BookOpen size={21} /></span><div><span>REASONIX NOVEL STUDIO</span><h1>AI 小说工作室</h1></div></div><div className="novel-studio__header-actions"><button type="button" onClick={() => setShowNew(true)}><Plus size={15} />新建项目</button><button type="button" onClick={() => void saveProject()} disabled={!project}><Save size={15} />保存设定</button><label className="novel-export"><Download size={15} /><select defaultValue="" disabled={!project || busy} onChange={(e) => { if (e.target.value) void exportProject(e.target.value); e.target.value = ""; }}><option value="" disabled>导出</option><option value="md">Markdown</option><option value="txt">TXT</option><option value="docx">Word DOCX</option></select></label><button type="button" title="删除项目" onClick={() => void deleteProject()} disabled={!project}><Trash2 size={15} /></button><button className="novel-studio__close" type="button" onClick={() => void requestClose()} disabled={busy} aria-label="关闭小说工作室" title="关闭小说工作室"><X size={18} /></button></div></header>
     <div className="novel-studio__body">
       <aside className="novel-studio__projects"><div className="novel-studio__aside-title">我的小说 <span>{projects.length}</span></div>{projects.map((item) => <button type="button" key={item.id} className={project?.id === item.id ? "is-active" : ""} onClick={() => void openProject(item.id)}><BookOpen size={15} /><span><strong>{item.title}</strong><small>{item.genre} · {item.chapterCount} 章</small></span><ChevronRight size={14} /></button>)}</aside>
       {project ? <main className="novel-studio__main"><div className="novel-studio__project-bar"><div><span className="novel-studio__eyebrow">{project.genre} · {project.tone}</span><h2>{project.title}</h2><p>{project.premise || "给你的故事一个清晰的起点。"}</p></div><div className="novel-studio__stats"><strong>{project.chapters.reduce((sum, c) => sum + c.wordCount, 0).toLocaleString()}</strong><small>总字数</small><strong>{project.chapters.length}</strong><small>章节</small></div></div>
         <nav className="novel-studio__tabs"><button className={tab === "write" ? "is-active" : ""} onClick={() => setTab("write")}><FileText size={15} />章节写作</button><button className={tab === "auto" ? "is-active" : ""} onClick={() => setTab("auto")}><Play size={15} />连续创作{jobs.some((item) => item.status === "running") && <b className="is-running">运行中</b>}</button><button className={tab === "memory" ? "is-active" : ""} onClick={() => setTab("memory")}><Brain size={15} />作品圣经</button><button className={tab === "world" ? "is-active" : ""} onClick={() => setTab("world")}><Lightbulb size={15} />世界观</button><button className={tab === "characters" ? "is-active" : ""} onClick={() => setTab("characters")}><Users size={15} />人物卡</button><button className={tab === "outline" ? "is-active" : ""} onClick={() => setTab("outline")}><Sparkles size={15} />故事大纲</button><button className={tab === "review" ? "is-active" : ""} onClick={() => setTab("review")}><Check size={15} />审查结果{issues.length > 0 && <b>{issues.length}</b>}</button></nav>
-        {tab === "write" && <div className="novel-writing"><aside className="novel-writing__chapters"><div className="novel-studio__aside-title">章节 <button type="button" onClick={() => void addChapter()} title="新增章节"><Plus size={13} /></button></div>{project.chapters.map((item) => <button type="button" key={item.id} className={chapter?.id === item.id ? "is-active" : ""} onClick={() => setActiveChapterId(item.id)}><span>{String(item.order).padStart(2, "0")}</span><strong>{item.title}</strong><small>{item.wordCount} 字</small></button>)}</aside>{chapter ? <><section className="novel-editor"><div className="novel-editor__toolbar"><input value={chapter.title} onChange={(e) => updateChapter({ title: e.target.value })} aria-label="章节标题" /><span>{chapter.status === "review" ? "待审查" : "草稿"}</span><button type="button" onClick={() => void saveChapter()} disabled={busy}><Save size={14} />保存</button></div><textarea value={chapter.content} onChange={(e) => updateChapter({ content: e.target.value })} placeholder="从一个有张力的画面开始..." /><div className="novel-editor__footer"><span>{chapter.content.length.toLocaleString()} 字 · 自动保存到本地</span><div><button type="button" onClick={() => void ai("continue")} disabled={busy}><WandSparkles size={14} />续写</button><button type="button" onClick={() => void ai("expand")} disabled={busy}>扩写</button><button type="button" onClick={() => void ai("polish")} disabled={busy}>润色</button></div></div></section><aside className="novel-ai-rail"><div className="novel-ai-rail__title"><span>三 AI 协作</span><small>实时辅助</small></div><div className="novel-ai-card novel-ai-card--main"><span className="novel-ai-card__dot" /><div><strong>主 AI · Novelist</strong><p>负责构思、续写与语言表达</p></div><button type="button" onClick={() => void ai("draft")} disabled={busy}>创作</button></div><div className="novel-ai-card"><span className="novel-ai-card__dot" /><div><strong>审查 AI · Continuity</strong><p>检查逻辑、人物一致性和节奏</p></div><button type="button" onClick={() => void ai("review-live")} disabled={busy}>检查</button></div><div className="novel-ai-card"><span className="novel-ai-card__dot" /><div><strong>完稿 AI · Editor</strong><p>章节完成后给出出版级建议</p></div><button type="button" onClick={() => void ai("review-final")} disabled={busy}>审阅</button></div><div className="novel-ai-rail__tip"><Sparkles size={14} /><span>写作建议会基于世界观、人物卡和最近章节摘要生成，减少上下文消耗。</span></div></aside></> : <div className="novel-empty"><h2>还没有章节</h2><button type="button" onClick={() => void addChapter()}><Plus size={14} />创建第一章</button></div>}</div>}
+        <details className="novel-compact-ai"><summary>AI 创作与审查</summary><div><button type="button" onClick={() => void ai("draft")} disabled={busy}><WandSparkles size={14} />创作</button><button type="button" onClick={() => void ai("review-live")} disabled={busy}>实时检查</button><button type="button" onClick={() => void ai("review-final")} disabled={busy}>完稿审阅</button></div></details>
+        {tab === "write" && <div className="novel-writing"><aside className="novel-writing__chapters"><div className="novel-studio__aside-title">章节 <button type="button" onClick={() => void addChapter()} title="新增章节"><Plus size={13} /></button></div>{project.chapters.map((item) => <button type="button" key={item.id} className={chapter?.id === item.id ? "is-active" : ""} onClick={() => void selectChapter(item.id)} disabled={busy}><span>{String(item.order).padStart(2, "0")}</span><strong>{item.title}</strong><small>{item.wordCount} 字</small></button>)}</aside>{chapter ? <><section className="novel-editor"><div className="novel-editor__toolbar"><input disabled={busy} value={chapter.title} onChange={(e) => updateChapter({ title: e.target.value })} aria-label="章节标题" /><span>{chapter.status === "review" ? "待审查" : "草稿"}</span><button type="button" onClick={() => void saveChapter()} disabled={busy}><Save size={14} />保存</button></div><textarea disabled={busy} aria-label="章节正文" value={chapter.content} onChange={(e) => updateChapter({ content: e.target.value })} placeholder="从一个有张力的画面开始..." /><div className="novel-editor__footer"><span>{chapter.content.length.toLocaleString()} 字 · {dirty ? "待保存" : "已保存"}</span><div><button type="button" onClick={() => void ai("continue")} disabled={busy}><WandSparkles size={14} />续写</button><button type="button" onClick={() => void ai("expand")} disabled={busy}>扩写</button><button type="button" onClick={() => void ai("polish")} disabled={busy}>润色</button></div></div></section><aside className="novel-ai-rail"><div className="novel-ai-rail__title"><span>三 AI 协作</span><small>实时辅助</small></div><div className="novel-ai-card novel-ai-card--main"><span className="novel-ai-card__dot" /><div><strong>主 AI · Novelist</strong><p>负责构思、续写与语言表达</p></div><button type="button" onClick={() => void ai("draft")} disabled={busy}>创作</button></div><div className="novel-ai-card"><span className="novel-ai-card__dot" /><div><strong>审查 AI · Continuity</strong><p>检查逻辑、人物一致性和节奏</p></div><button type="button" onClick={() => void ai("review-live")} disabled={busy}>检查</button></div><div className="novel-ai-card"><span className="novel-ai-card__dot" /><div><strong>完稿 AI · Editor</strong><p>章节完成后给出出版级建议</p></div><button type="button" onClick={() => void ai("review-final")} disabled={busy}>审阅</button></div><div className="novel-ai-rail__tip"><Sparkles size={14} /><span>写作建议会基于世界观、人物卡和最近章节摘要生成，减少上下文消耗。</span></div></aside></> : <div className="novel-empty"><h2>还没有章节</h2><button type="button" onClick={() => void addChapter()}><Plus size={14} />创建第一章</button></div>}</div>}
         {tab === "auto" && <NovelAutoPanel project={project} jobs={jobs} target={autoTarget} words={autoWords} instruction={autoInstruction} busy={busy} onTarget={setAutoTarget} onWords={setAutoWords} onInstruction={setAutoInstruction} onStart={() => void startAutoWrite()} onControl={(action, id) => void controlJob(action, id)} />}
         {tab === "memory" && <NovelMemoryPanel memory={memory} busy={busy} onImport={() => void importBible()} />}
         {tab === "world" && <div className="novel-settings-grid"><Setting label="时代与背景" value={project.world.era} onChange={(value) => setProject({ ...project, world: { ...project.world, era: value } })} /><Setting label="地点与空间" value={project.world.locations} onChange={(value) => setProject({ ...project, world: { ...project.world, locations: value } })} /><Setting label="世界运行规则" value={project.world.rules} onChange={(value) => setProject({ ...project, world: { ...project.world, rules: value } })} /><Setting label="主题与意象" value={project.world.themes} onChange={(value) => setProject({ ...project, world: { ...project.world, themes: value } })} /></div>}

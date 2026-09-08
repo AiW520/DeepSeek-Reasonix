@@ -380,9 +380,11 @@ function useWindowsMaximised(enabled: boolean): readonly [boolean, () => void] {
 function WindowsWindowControls({
   maximised,
   syncMaximised,
+  onClose,
 }: {
   maximised: boolean;
   syncMaximised: () => void;
+  onClose: () => void;
 }) {
   const toggleMaximise = useCallback(() => {
     void app.ToggleMaximiseMainWindow()
@@ -416,7 +418,7 @@ function WindowsWindowControls({
         type="button"
         aria-label="Close window"
         title="Close"
-        onClick={() => void app.CloseMainWindow()}
+        onClick={onClose}
       >
         <X size={13} strokeWidth={1.9} />
       </button>
@@ -1138,7 +1140,21 @@ export default function App() {
   const needsOnboarding = useOverlayStore((s) => s.needsOnboarding);
   const setNeedsOnboarding = useOverlayStore((s) => s.setNeedsOnboarding);
   const [providerSetupNeeded, setProviderSetupNeeded] = useState(false);
-  const [workbenchModule, setWorkbenchModule] = useState<WorkbenchModule | null>(null);
+  const [workbenchModule, commitWorkbenchModule] = useState<WorkbenchModule | null>(null);
+  const workbenchLeaveGuard = useRef<(() => Promise<boolean>) | null>(null);
+  const registerWorkbenchLeaveGuard = useCallback((guard: () => Promise<boolean>) => {
+    workbenchLeaveGuard.current = guard;
+    return () => { if (workbenchLeaveGuard.current === guard) workbenchLeaveGuard.current = null; };
+  }, []);
+  const workbenchNavigationRevision = useRef(0);
+  const setWorkbenchModule = useCallback(async (next: WorkbenchModule | null) => {
+    const revision = ++workbenchNavigationRevision.current;
+    if (next === workbenchModule) return true;
+    if (workbenchLeaveGuard.current && !await workbenchLeaveGuard.current()) return false;
+    if (revision !== workbenchNavigationRevision.current) return false;
+    commitWorkbenchModule(next);
+    return true;
+  }, [workbenchModule]);
   const settingsTarget = useOverlayStore((s) => s.settingsTarget);
   const setSettingsTarget = useOverlayStore((s) => s.setSettingsTarget);
   const settingsFocus = useOverlayStore((s) => s.settingsFocus);
@@ -3791,11 +3807,11 @@ export default function App() {
 
   const handleNewTab = useCallback(async () => {
     closeTransientOverlays();
-    setWorkbenchModule(null);
+    if (!await setWorkbenchModule(null)) return;
     setSidebarImDetailConnectionId("");
     const target = blankSessionTarget();
     await openBlankSession(target.scope, target.workspaceRoot);
-  }, [blankSessionTarget, closeTransientOverlays, openBlankSession]);
+  }, [blankSessionTarget, closeTransientOverlays, openBlankSession, setWorkbenchModule]);
 
   const handleOpenTopic = useCallback((scope: string, workspaceRoot: string, topicId: string, sessionPath?: string): Promise<void> => {
     closeTransientOverlays();
@@ -4610,7 +4626,7 @@ export default function App() {
                 {(workbenchModule === "plugins" || workbenchModule === "skills") && (
                   <MarketplaceWorkspace mode={workbenchModule} onModeChange={setWorkbenchModule} onClose={() => setWorkbenchModule(null)} />
                 )}
-                {workbenchModule === "novel" && <NovelStudioWorkspace onClose={() => setWorkbenchModule(null)} />}
+                {workbenchModule === "novel" && <NovelStudioWorkspace onClose={() => void setWorkbenchModule(null)} registerBeforeLeave={registerWorkbenchLeaveGuard} />}
               </Suspense>
             </div>
           )}
@@ -5513,6 +5529,12 @@ export default function App() {
       </Suspense>
       {windowsFramelessChrome && (
         <WindowsWindowControls
+          onClose={() => {
+            void (async () => {
+              if (workbenchLeaveGuard.current && !await workbenchLeaveGuard.current()) return;
+              await app.CloseMainWindow();
+            })();
+          }}
           maximised={mainWindowMaximised}
           syncMaximised={syncMainWindowMaximised}
         />

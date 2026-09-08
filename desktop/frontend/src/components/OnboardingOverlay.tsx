@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import logo from "../assets/reasonix-icon.png";
 import { useT } from "../lib/i18n";
 import { app, openExternal } from "../lib/bridge";
@@ -19,8 +19,62 @@ export function OnboardingOverlay({
   const [state, setState] = useState<"idle" | "validating" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const submittingRef = useRef(false);
+
+  useLayoutEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    inputRef.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, []);
+
+  useEffect(() => {
+    if (state !== "error") return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [state]);
+
+  useEffect(() => {
+    const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), [tabindex="0"]',
+    ) ?? []);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!submittingRef.current) onSkip();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    const retainFocus = (event: FocusEvent) => {
+      if (event.target instanceof Node && !dialogRef.current?.contains(event.target)) {
+        (focusable()[0] ?? dialogRef.current)?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("focusin", retainFocus);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("focusin", retainFocus);
+    };
+  }, [onSkip]);
 
   const submit = useCallback(async () => {
+    if (submittingRef.current) return;
     const key = value.trim();
     if (!key) {
       setError(t("onboarding.error.empty"));
@@ -28,6 +82,7 @@ export function OnboardingOverlay({
       inputRef.current?.focus();
       return;
     }
+    submittingRef.current = true;
     setState("validating");
     setError(null);
     try {
@@ -43,17 +98,17 @@ export function OnboardingOverlay({
         setError(msg || t("onboarding.error.unknown"));
       }
       setState("error");
-      inputRef.current?.focus();
-      inputRef.current?.select();
+    } finally {
+      submittingRef.current = false;
     }
   }, [t, value, onComplete]);
 
   return (
-    <div className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <div ref={dialogRef} className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" aria-describedby="onboarding-description" aria-busy={state === "validating"} tabIndex={-1}>
       <div className="onboarding__card">
         <img src={logo} className="onboarding__logo" alt="Reasonix" draggable={false} />
         <div id="onboarding-title" className="onboarding__title">{t("onboarding.title")}</div>
-        <div className="onboarding__tag">{t("onboarding.tagline")}</div>
+        <div id="onboarding-description" className="onboarding__tag">{t("onboarding.tagline")}</div>
 
         <label className="onboarding__label" htmlFor="onboarding-key">
           {t("onboarding.inputLabel")}
@@ -65,7 +120,8 @@ export function OnboardingOverlay({
           type="password"
           autoComplete="off"
           spellCheck={false}
-          autoFocus
+          aria-invalid={state === "error"}
+          aria-describedby={state === "error" ? "onboarding-error" : undefined}
           placeholder={t("onboarding.inputPlaceholder")}
           value={value}
           onChange={(e) => {
@@ -82,7 +138,7 @@ export function OnboardingOverlay({
         />
 
         {state === "error" && error && (
-          <div className="onboarding__error" role="alert">
+          <div id="onboarding-error" className="onboarding__error" role="alert">
             {error}
           </div>
         )}

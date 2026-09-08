@@ -2365,6 +2365,12 @@ export const zh: Record<DictKey, string> = {
   "settings.themes.official.official-cyan-stage.description": "青蓝未来舞台与原创数字表演者。",
   "settings.themes.official.official-noir-gold.name": "黑金序曲",
   "settings.themes.official.official-noir-gold.description": "黑色丝绒舞台与金色聚光灯下的原创创意绅士。",
+  "settings.themes.official.official-daylight.name": "晴昼",
+  "settings.themes.official.official-daylight.description": "清透日光工作区与明快蓝色强调，适合专注工作。",
+  "settings.themes.official.official-graphite-teal.name": "石墨青",
+  "settings.themes.official.official-graphite-teal.description": "深石墨表面搭配沉静青绿色，适合长时间使用。",
+  "settings.themes.official.official-silver-rose.name": "银雾玫",
+  "settings.themes.official.official-silver-rose.description": "柔和银色面板与玫瑰色强调，营造精致创作空间。",
 
   "settings.themeGallery.title": "主题画廊",
   "settings.themeGallery.subtitle": "点击主题即可全局预览，应用后才会保存",

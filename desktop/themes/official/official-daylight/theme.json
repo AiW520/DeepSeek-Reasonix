@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "official-daylight",
+  "name": "Daylight",
+  "author": "Reasonix Contributors",
+  "description": "A clear daylight workspace with crisp blue accents for focused work.",
+  "license": "MIT",
+  "baseStyle": "slate",
+  "tokens": {
+    "light": {"bg":"#F5F7FB","bgSoft":"#EAF0F8","bgElev":"#FFFFFF","panel":"#FFFFFF","sidebar":"#E8EEF7","chat":"#F8FAFD","workspace":"#FFFFFF","workspaceFiles":"#EEF3FA","border":"#B8C7DC","borderSoft":"#DCE5F1","fg":"#17263D","fgDim":"#4C607A","fgFaint":"#7890AD","accent":"#2862DD","accentFg":"#FFFFFF"},
+    "dark": {"bg":"#101827","bgSoft":"#172235","bgElev":"#1D2A40","panel":"#19263A","sidebar":"#152137","chat":"#142034","workspace":"#1D2A40","workspaceFiles":"#1A2940","border":"#334B6A","borderSoft":"#263A54","fg":"#EDF4FF","fgDim":"#B5C7E0","fgFaint":"#7F98B8","accent":"#6F9BFF","accentFg":"#0C1830"}
+  },
+  "recipes": {"density":"comfortable","corners":"soft"},
+  "background": {"image":"background.webp","focusX":0.74,"focusY":0.45,"safeArea":"left","homeOpacity":0.96,"taskOpacity":0.18,"overlayStrength":0.72,"paneOpacity":0.5}
+}
