@@ -1,0 +1,62 @@
+name: Publish Windows preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful CI run containing the Windows artifact"
+        required: true
+        type: string
+      tag:
+        description: "Existing desktop tag, for example desktop-v1.31.8"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: publish direct Windows downloads
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate release inputs
+        env:
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^desktop-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+
+      - name: Download verified Windows CI artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: reasonix-windows-amd64-80cd913f8227b300bf2cec0f7526822185c7e597
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: dist
+
+      - name: Verify expected direct-download files
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          test -f Reasonix-windows-amd64-installer.exe
+          test -f Reasonix-windows-amd64.zip
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 2
+
+      - name: Create preview release with direct assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Reasonix Desktop ${TAG#desktop-} Preview" \
+            --notes "Windows preview build from the verified CI run ${{ inputs.source_run_id }}. This fork build is unsigned and does not change the stable auto-update channel." \
+            --prerelease \
+            --latest=false \
+            dist/Reasonix-windows-amd64-installer.exe \
+            dist/Reasonix-windows-amd64.zip
